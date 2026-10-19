@@ -1,0 +1,41 @@
+MI BIBLIOTECA — VERSIÓN 2.1 (MEJORA DE ISBN)
+
+NOVEDADES
+- Vista de lista y cuadrícula con portadas cuando el catálogo proporciona una imagen.
+- Escáner ISBN y búsqueda manual por ISBN para intentar completar título, autor y portada.
+- Búsqueda ISBN reforzada: valida ISBN-10/ISBN-13, consulta Google Books con dos estrategias y después Open Library Search y Books API. Prioriza coincidencias por ISBN exacto.
+- Mensajes claros para diferenciar ISBN inválido, libro sin ficha en catálogos y fallos de conexión; mantiene el ISBN para completar datos manualmente.
+- La consulta indica cuándo está buscando y desactiva temporalmente el botón para evitar peticiones duplicadas.
+- ISBN guardado como dato opcional; se conserva también en la exportación CSV.
+- Búsqueda por título, autor, estado, balda e ISBN.
+- Filtros por estado y ordenación por título, autor, balda o fecha de incorporación.
+- Aviso de posibles duplicados por ISBN o por título/autor.
+- Estadísticas de libros totales, leídos, pendientes y prestados.
+- Copia de seguridad JSON con fecha, restauración por sustitución o combinación, y exportación CSV.
+- Mantiene la misma clave de almacenamiento local que la versión anterior para conservar el inventario existente.
+- Caché de aplicación actualizada para activar la nueva versión.
+
+INSTALACIÓN / ACTUALIZACIÓN EN GITHUB PAGES
+1. Descomprime este ZIP en tu ordenador.
+2. Abre tu repositorio de GitHub y entra en Add file > Upload files.
+3. Sube y reemplaza index.html y sw.js con los de esta versión. No elimines manifest.webmanifest ni los iconos.
+4. Confirma con Commit changes y espera a que GitHub Pages publique los cambios.
+5. Abre la URL HTTPS de Mi Biblioteca en Chrome, recarga y vuelve a abrir la aplicación instalada. Si ves la versión antigua, cierra la app, abre la URL en Chrome y recarga de nuevo para que se active el service worker.
+
+DATOS Y PRIVACIDAD
+- Los libros permanecen en el almacenamiento local de este navegador/dispositivo; no se envían a una cuenta ni se sincronizan.
+- La actualización conserva la clave local mi-biblioteca-libros-v1 y añade campos opcionales ISBN y portada, por lo que no debería borrar los registros anteriores.
+- Como buena práctica, exporta una copia JSON antes de actualizar. No borres los datos del sitio ni la aplicación si quieres conservar los libros.
+- Restaurar una copia permite combinar registros nuevos o sustituir el inventario actual. La opción sustituir reemplaza todos los registros actuales.
+
+USO
+- Añade libros manualmente o dicta texto con el micrófono del teclado Android.
+- Escanea un ISBN con la cámara o escribe el ISBN y pulsa Buscar datos por ISBN.
+- La búsqueda de metadatos usa Google Books y Open Library y requiere Internet. Puede que no haya datos para todos los ISBN; revisa siempre lo rellenado.
+- Cambia entre Lista y Portadas, busca, filtra por estado y ordena la colección.
+- Los posibles duplicados generan un aviso; puedes cancelar el guardado o confirmarlo.
+- La estadística se calcula localmente a partir de los estados de los libros.
+- Exporta CSV para hojas de cálculo y JSON para hacer/restaurar copias de seguridad.
+
+NOTA SOBRE LAS PORTADAS
+Las imágenes se cargan desde los catálogos externos cuando están disponibles y el dispositivo tiene conexión. No todos los libros tienen portada registrada.
