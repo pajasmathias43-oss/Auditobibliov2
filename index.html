@@ -353,7 +353,7 @@ async function buscarPortadaPorTitulo(){
 }
 $('findCoverBtn').addEventListener('click',buscarPortadaPorTitulo);
 
-/* ---------- Escáner (inicialización simple que funcionaba) ---------- */
+/* ---------- Escáner (versión simple original que funcionaba) ---------- */
 $('scanIsbn').addEventListener('click',startScanner);
 async function startScanner(){
     const video=$('scannerVideo');
@@ -367,7 +367,7 @@ async function startScanner(){
         const devices=await navigator.mediaDevices.enumerateDevices(),cams=devices.filter(d=>d.kind==='videoinput'),back=cams.find(d=>/back|rear|environment|trasera|posterior/i.test(d.label));
         if(!cams.length)throw new Error('NotFoundError');
 
-        // Inicialización simple (sin hints) que es la que funcionaba
+        // Inicialización simple, sin hints (es la que funcionaba antes)
         codeReader=new ZXingBrowser.BrowserMultiFormatReader();
 
         $('scannerMessage').textContent='Enfoca el código de barras de la contraportada.';
@@ -380,7 +380,7 @@ async function startScanner(){
             catch(e){$('scannerMessage').textContent=e.message||'No se encontró información. Puedes completar los campos manualmente.';setLookupMessage(e.message||'No se encontró información. Puedes completar los campos manualmente.','error');}
             finally{scanBusy=false;stopScanner(false);}
         });
-        // Detección opcional de linterna (envuelta en try/catch para no romper nada)
+        // Detección opcional de linterna (protegida para no romper nada si falla)
         try{const s=video.srcObject;if(s){const t=s.getVideoTracks()[0];const caps=t.getCapabilities?.()||{};if(caps.torch){$('torchBtn').hidden=false;currentStream=t;}}}catch(e){}
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
