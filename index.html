@@ -353,7 +353,7 @@ async function buscarPortadaPorTitulo(){
 }
 $('findCoverBtn').addEventListener('click',buscarPortadaPorTitulo);
 
-/* ---------- Escáner mejorado ---------- */
+/* ---------- Escáner (inicialización simple que funcionaba) ---------- */
 $('scanIsbn').addEventListener('click',startScanner);
 async function startScanner(){
     const video=$('scannerVideo');
@@ -367,16 +367,8 @@ async function startScanner(){
         const devices=await navigator.mediaDevices.enumerateDevices(),cams=devices.filter(d=>d.kind==='videoinput'),back=cams.find(d=>/back|rear|environment|trasera|posterior/i.test(d.label));
         if(!cams.length)throw new Error('NotFoundError');
 
-        const hints=new Map();
-        hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS,[
-            ZXingBrowser.BarcodeFormat.EAN_13,
-            ZXingBrowser.BarcodeFormat.EAN_8,
-            ZXingBrowser.BarcodeFormat.UPC_A,
-            ZXingBrowser.BarcodeFormat.UPC_E,
-            ZXingBrowser.BarcodeFormat.CODE_128
-        ]);
-        hints.set(ZXingBrowser.DecodeHintType.TRY_HARDER,true);
-        codeReader=new ZXingBrowser.BrowserMultiFormatReader(hints);
+        // Inicialización simple (sin hints) que es la que funcionaba
+        codeReader=new ZXingBrowser.BrowserMultiFormatReader();
 
         $('scannerMessage').textContent='Enfoca el código de barras de la contraportada.';
         scannerControls=await codeReader.decodeFromVideoDevice((back||cams[0]).deviceId,video,async(result,err,controls)=>{
@@ -388,6 +380,7 @@ async function startScanner(){
             catch(e){$('scannerMessage').textContent=e.message||'No se encontró información. Puedes completar los campos manualmente.';setLookupMessage(e.message||'No se encontró información. Puedes completar los campos manualmente.','error');}
             finally{scanBusy=false;stopScanner(false);}
         });
+        // Detección opcional de linterna (envuelta en try/catch para no romper nada)
         try{const s=video.srcObject;if(s){const t=s.getVideoTracks()[0];const caps=t.getCapabilities?.()||{};if(caps.torch){$('torchBtn').hidden=false;currentStream=t;}}}catch(e){}
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
