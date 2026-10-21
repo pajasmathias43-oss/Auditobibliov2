@@ -275,9 +275,9 @@ async function buscarLibroPorISBN(rawIsbn){
         }catch(e){failures++;}
     }
 
-    if(!info || !info.title){
-        if(failures>=3) throw Error('Los catálogos no han respondido. El ISBN se conserva; rellena título y autor manualmente.');
-        throw Error('No aparece este ISBN en los catálogos. Puede ser una edición rara. El ISBN se conserva; rellena los datos a mano.');
+       if(!info || !info.title){
+        if(failures>=3) throw Error('No se pudo conectar con los catálogos. Revisa tu conexión a Internet y vuelve a intentarlo. El ISBN se conserva.');
+        throw Error('ISBN válido, pero los catálogos aún no tienen ficha de este libro (suele pasar con novedades o ediciones poco indexadas). Escribe el título y el autor a mano, o pulsa “🔍 Buscar portada por título”.');
     }
 
     if(!info.authors || info.authors.length===0){
@@ -372,8 +372,11 @@ async function startScanner(){
             if(!/^(97[89]\d{10}|\d{9}[\dX])$/.test(raw)){$('scannerMessage').textContent='No parece un ISBN válido. Enfoca el código de barras del libro.';return;}
             scanBusy=true;$('isbn').value=raw;$('scannerMessage').textContent='ISBN detectado. Buscando información…';
             try{controls?.stop();const lookupResult=await buscarLibroPorISBN(raw);showDuplicateWarning();$('scannerMessage').textContent='Datos encontrados en '+lookupResult.source+'. Revisa y guarda el libro.';}
-            catch(e){$('scannerMessage').textContent=e.message||'No se encontró información. Puedes completar los campos manualmente.';setLookupMessage(e.message||'No se encontró información. Puedes completar los campos manualmente.','error');}
-            finally{scanBusy=false;stopScanner(false);}
+catch(e){
+    const msg = e.message || 'No se encontró información. Puedes completar los campos manualmente.';
+    $('scannerMessage').textContent = msg;
+    setLookupMessage(msg, 'error');
+}            finally{scanBusy=false;stopScanner(false);}
         });
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
