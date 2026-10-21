@@ -39,6 +39,7 @@ button:hover{filter:brightness(.97)}
 .stat strong{display:block;font-size:1.5rem;color:var(--accent);font-weight:750;letter-spacing:-.02em}
 .stat span{font-size:.75rem;color:var(--muted)}
 .filters{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin:10px 0}
+.filters-extra{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
 .viewbar{display:flex;gap:7px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:12px 0}
 .viewbar .buttons{display:flex;gap:6px}
 .viewbar button[aria-pressed=true]{background:var(--accent);color:#fff}
@@ -91,7 +92,7 @@ details.backup summary::before{content:"▸ ";color:var(--muted);display:inline-
 details.backup[open] summary::before{transform:rotate(90deg)}
 details.backup .backup-body{padding:0 14px 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 details.backup .backup-body button{font-size:.85rem}
-@media(max-width:560px){main{padding:10px}.form-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}.filters input{grid-column:1/-1}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.book-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-card .cover,.grid-card .cover-placeholder{height:135px}details.backup .backup-body{grid-template-columns:1fr}}
+@media(max-width:560px){main{padding:10px}.form-grid{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}.filters input{grid-column:1/-1}.filters-extra{grid-template-columns:1fr 1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.book-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-card .cover,.grid-card .cover-placeholder{height:135px}details.backup .backup-body{grid-template-columns:1fr}}
 @media(min-width:700px){.book-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 </style></head>
 <body>
@@ -114,11 +115,14 @@ details.backup .backup-body button{font-size:.85rem}
 <section class="card"><h2 id="formTitle">Añadir un libro</h2><form id="bookForm"><input type="hidden" id="bookId"><div class="form-grid">
 <div class="full"><label for="title">Título * <button type="button" class="mic-btn" data-mic="title">🎤 Dictar</button></label><input id="title" autocomplete="off" required placeholder="Puedes dictarlo con el micrófono del teclado"><button class="secondary" type="button" id="findCoverBtn" style="width:100%;margin-top:6px">🔍 Buscar portada por título</button><button class="secondary" type="button" id="scanIsbn" style="width:100%;margin-top:6px">📷 Escanear ISBN con la cámara</button><div id="scannerPanel" class="hidden" style="margin-top:10px"><div class="scanner-wrap"><video id="scannerVideo" playsinline autoplay muted></video><div class="scanner-guide"></div></div><p class="hint" id="scannerMessage">Apunta al código de barras ISBN de la contraportada.</p><button class="secondary" type="button" id="torchBtn" style="width:100%;margin-top:6px" hidden>💡 Linterna</button><button class="danger" type="button" id="stopScanner" style="width:100%;margin-top:6px">Cerrar cámara</button></div></div>
 <div><label for="author">Autor <button type="button" class="mic-btn" data-mic="author">🎤</button></label><input id="author" autocomplete="off" placeholder="Nombre del autor"></div><div><label for="isbn">ISBN (opcional)</label><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="978…"><button class="secondary" type="button" id="lookupIsbn" style="width:100%;margin-top:6px">Buscar datos por ISBN</button><p class="hint" id="isbnLookupMessage" role="status" aria-live="polite">Se consultarán varios catálogos si el libro no aparece a la primera.</p></div>
-<div><label for="status">Estado</label><select id="status"><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select></div><div><label for="location">Ubicación <button type="button" class="mic-btn" data-mic="location">🎤</button></label><input id="location" autocomplete="off" placeholder="Ej. 2, salón, B"></div>
-<div><label for="rating">Valoración</label><select id="rating"><option value="0">Sin valorar</option><option value="1">★ 1</option><option value="2">★★ 2</option><option value="3">★★★ 3</option><option value="4">★★★★ 4</option><option value="5">★★★★★ 5</option></select></div><div></div>
+<div><label for="status">Estado</label><select id="status"><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select></div><div><label for="rating">Valoración</label><select id="rating"><option value="0">Sin valorar</option><option value="1">★ 1</option><option value="2">★★ 2</option><option value="3">★★★ 3</option><option value="4">★★★★ 4</option><option value="5">★★★★★ 5</option></select></div>
+<div class="full" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div><label for="shelfNum">Estantería</label><select id="shelfNum"><option value="">Sin asignar</option><option value="1">Estantería 1</option><option value="2">Estantería 2</option><option value="3">Estantería 3</option><option value="4">Estantería 4</option><option value="5">Estantería 5</option></select></div>
+  <div><label for="rowNum">Altura / Balda</label><select id="rowNum"><option value="">Sin asignar</option><option value="1">Balda 1 (arriba)</option><option value="2">Balda 2</option><option value="3">Balda 3</option><option value="4">Balda 4</option><option value="5">Balda 5 (abajo)</option></select></div>
+</div>
 <div class="full"><label for="comments">Comentarios</label><textarea id="comments" placeholder="Notas, opiniones, a quién se lo recomendarías…"></textarea></div>
 </div><p class="hint">En Android, toca un campo y usa el micrófono del teclado para dictar, o pulsa el botón 🎤. Revisa los datos antes de guardar.</p><div id="duplicateNotice" class="notice hidden"></div><div id="quickSaveBar" class="quick-save-bar hidden"><button class="primary" type="button" id="quickSaveBtn" style="margin-top:0">⚡ Guardar rápido</button><span class="hint" style="margin:0;flex:1;min-width:120px">Guarda con estado «Pendiente» y sin ubicación. Luego puedes editarlo.</span></div><button class="primary" type="submit" id="saveBtn">Guardar libro</button><button class="secondary hidden" type="button" id="cancelEdit" style="width:100%;margin-top:8px">Cancelar edición</button></form></section>
-<section class="card"><h2>Mi colección</h2><div class="filters"><input id="search" placeholder="Buscar título, autor, ISBN, comentarios…" aria-label="Buscar"><select id="statusFilter" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select><select id="sortBy" aria-label="Ordenar"><option value="title">Título A–Z</option><option value="author">Autor A–Z</option><option value="location">Ubicación A–Z</option><option value="newest">Añadidos recientemente</option><option value="rating">Mejor valorados</option></select></div><div class="viewbar"><span class="count" id="count">0 libros</span><div class="buttons"><button class="secondary" id="listView" type="button" aria-pressed="true">☷ Lista</button><button class="secondary" id="gridView" type="button" aria-pressed="false">▦ Portadas</button></div></div><div id="bookList" class="book-list"></div>
+<section class="card"><h2>Mi colección</h2><div class="filters"><input id="search" placeholder="Buscar título, autor, ISBN, comentarios…" aria-label="Buscar"><select id="statusFilter" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select><select id="sortBy" aria-label="Ordenar"><option value="title">Título A–Z</option><option value="author">Autor A–Z</option><option value="location">Ubicación A–Z</option><option value="newest">Añadidos recientemente</option><option value="rating">Mejor valorados</option></select></div><div class="filters-extra"><select id="shelfFilter" aria-label="Filtrar por estantería"><option value="">Todas las estanterías</option><option value="1">Estantería 1</option><option value="2">Estantería 2</option><option value="3">Estantería 3</option><option value="4">Estantería 4</option><option value="5">Estantería 5</option></select><select id="rowFilter" aria-label="Filtrar por balda"><option value="">Todas las baldas</option><option value="1">Balda 1</option><option value="2">Balda 2</option><option value="3">Balda 3</option><option value="4">Balda 4</option><option value="5">Balda 5</option></select></div><div class="viewbar"><span class="count" id="count">0 libros</span><div class="buttons"><button class="secondary" id="listView" type="button" aria-pressed="true">☷ Lista</button><button class="secondary" id="gridView" type="button" aria-pressed="false">▦ Portadas</button></div></div><div id="bookList" class="book-list"></div>
 <details class="backup"><summary>⚙️ Copias de seguridad</summary><div class="backup-body">
 <button class="secondary" id="exportXlsx" type="button">📊 Exportar Excel</button>
 <button class="secondary" id="exportJson" type="button">💾 Crear copia JSON</button>
@@ -142,6 +146,7 @@ const SETTINGS_KEY='mi-biblioteca-settings';
 const $=id=>document.getElementById(id);
 let books=[];let deferredInstallPrompt=null;let currentView='list';let codeReader=null;let scannerControls=null;let scanBusy=false;let scannedCover='';
 let recognition=null;
+let currentStream=null;let torchOn=false;
 
 /* ---------- Ajustes ---------- */
 function loadSettings(){try{const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');if(s.theme)document.body.classList.add(s.theme);if(s.fontScale)document.documentElement.style.setProperty('--font-scale',s.fontScale);}catch(e){}}
@@ -156,6 +161,7 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');}
 function normalizeBook(b){return {id:String(b.id||safeId()),title:String(b.title||''),author:String(b.author||''),status:String(b.status||'Pendiente de leer'),location:String(b.location||b.shelf||''),isbn:String(b.isbn||''),cover:String(b.cover||b.thumbnail||''),createdAt:b.createdAt||new Date().toISOString(),comments:String(b.comments||b.tags||''),rating:Number(b.rating)||0};}
 function toast(msg,actionLabel,actionFn){const old=document.querySelector('.toast');if(old)old.remove();const el=document.createElement('div');el.className='toast';el.innerHTML='<span>'+esc(msg)+'</span>';if(actionLabel){const btn=document.createElement('button');btn.textContent=actionLabel;btn.addEventListener('click',()=>{actionFn&&actionFn();el.remove();});el.appendChild(btn);}document.body.appendChild(el);setTimeout(()=>el.remove(),5000);}
+function formatLocation(loc){const s=String(loc||'').trim();if(!s)return 'Sin ubicación';const m=/^E(\d+)\s*·\s*B(\d+)$/.exec(s);if(m)return 'Est. '+m[1]+' · Balda '+m[2];if(/^E(\d+)$/.test(s))return 'Est. '+s.slice(1);if(/^B(\d+)$/.test(s))return 'Balda '+s.slice(1);return s;}
 
 /* ---------- Almacenamiento ---------- */
 function loadBooks(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');books=Array.isArray(saved)?saved.filter(b=>b&&typeof b.title==='string').map(normalizeBook):[];}catch(e){books=[];toast('No se pudo leer el inventario local.');}}
@@ -164,13 +170,13 @@ function updateLastBackupLabel(date){const el=document.getElementById('lastBacku
 function persist(){autoBackup();try{localStorage.setItem(STORAGE_KEY,JSON.stringify(books));render();}catch(e){toast('No se han podido guardar los cambios. Exporta una copia.');}}
 
 /* ---------- Formulario ---------- */
-function resetForm(){$('bookForm').reset();$('bookId').value='';$('formTitle').textContent='Añadir un libro';$('saveBtn').textContent='Guardar libro';$('cancelEdit').classList.add('hidden');$('duplicateNotice').classList.add('hidden');$('status').value='Pendiente de leer';$('rating').value='0';scannedCover='';hideQuickSave();}
+function resetForm(){$('bookForm').reset();$('bookId').value='';$('formTitle').textContent='Añadir un libro';$('saveBtn').textContent='Guardar libro';$('cancelEdit').classList.add('hidden');$('duplicateNotice').classList.add('hidden');$('status').value='Pendiente de leer';$('rating').value='0';$('shelfNum').value='';$('rowNum').value='';scannedCover='';hideQuickSave();}
 function findDuplicates(title,author,isbn,excludeId=''){const cleanIsbn=String(isbn||'').replace(/[^0-9Xx]/g,'').toUpperCase();return books.filter(b=>b.id!==excludeId&&((cleanIsbn&&String(b.isbn||'').replace(/[^0-9Xx]/g,'').toUpperCase()===cleanIsbn)||(norm(title)&&norm(b.title)===norm(title)&&(!author||!b.author||norm(b.author)===norm(author)))));}
-function showDuplicateWarning(){const title=$('title').value.trim(),author=$('author').value.trim(),isbn=$('isbn').value.trim();const d=findDuplicates(title,author,isbn,$('bookId').value);const el=$('duplicateNotice');if(d.length){el.textContent='Posible duplicado: '+d.map(b=>'“'+b.title+'”'+(b.location?' ('+b.location+')':'')).join(', ')+'. Puedes revisar la colección antes de guardar.';el.classList.remove('hidden');}else el.classList.add('hidden');}
+function showDuplicateWarning(){const title=$('title').value.trim(),author=$('author').value.trim(),isbn=$('isbn').value.trim();const d=findDuplicates(title,author,isbn,$('bookId').value);const el=$('duplicateNotice');if(d.length){el.textContent='Posible duplicado: '+d.map(b=>'“'+b.title+'”'+(b.location?' ('+formatLocation(b.location)+')':'')).join(', ')+'. Puedes revisar la colección antes de guardar.';el.classList.remove('hidden');}else el.classList.add('hidden');}
 ['title','author','isbn'].forEach(id=>$(id).addEventListener('input',showDuplicateWarning));
-$('bookForm').addEventListener('submit',e=>{e.preventDefault();const title=$('title').value.trim(),author=$('author').value.trim(),status=$('status').value,location=$('location').value.trim(),isbn=$('isbn').value.trim().replace(/[^0-9Xx]/g,'').toUpperCase(),id=$('bookId').value;if(!title){toast('Escribe o dicta el título del libro.');return;}const dup=findDuplicates(title,author,isbn,id);if(dup.length&&!confirm('Hay uno o más posibles duplicados: '+dup.map(b=>b.title).join(', ')+'. ¿Quieres guardar de todos modos?'))return;const old=books.find(b=>b.id===id);const item={...(old||{}),id:id||safeId(),title,author,status,location,isbn,cover:scannedCover||old?.cover||'',createdAt:old?.createdAt||new Date().toISOString(),comments:$('comments').value.trim(),rating:Number($('rating').value)||0};scannedCover='';if(id){const i=books.findIndex(b=>b.id===id);if(i>=0)books[i]=item;}else books.unshift(item);persist();resetForm();window.scrollTo({top:0,behavior:'smooth'});toast(id?'Libro actualizado':'Libro añadido');});
+$('bookForm').addEventListener('submit',e=>{e.preventDefault();const title=$('title').value.trim(),author=$('author').value.trim(),status=$('status').value,isbn=$('isbn').value.trim().replace(/[^0-9Xx]/g,'').toUpperCase(),id=$('bookId').value;const shelfNum=$('shelfNum').value,rowNum=$('rowNum').value;let location='';if(shelfNum&&rowNum)location='E'+shelfNum+' · B'+rowNum;else if(shelfNum)location='E'+shelfNum;else if(rowNum)location='B'+rowNum;if(!title){toast('Escribe o dicta el título del libro.');return;}const dup=findDuplicates(title,author,isbn,id);if(dup.length&&!confirm('Hay uno o más posibles duplicados: '+dup.map(b=>b.title).join(', ')+'. ¿Quieres guardar de todos modos?'))return;const old=books.find(b=>b.id===id);const item={...(old||{}),id:id||safeId(),title,author,status,location,isbn,cover:scannedCover||old?.cover||'',createdAt:old?.createdAt||new Date().toISOString(),comments:$('comments').value.trim(),rating:Number($('rating').value)||0};scannedCover='';if(id){const i=books.findIndex(b=>b.id===id);if(i>=0)books[i]=item;}else books.unshift(item);persist();resetForm();window.scrollTo({top:0,behavior:'smooth'});toast(id?'Libro actualizado':'Libro añadido');});
 $('cancelEdit').addEventListener('click',resetForm);
-function editBook(id){const b=books.find(x=>x.id===id);if(!b)return;$('bookId').value=b.id;$('title').value=b.title;$('author').value=b.author;$('status').value=b.status;$('location').value=b.location;$('isbn').value=b.isbn||'';$('comments').value=b.comments||'';$('rating').value=String(b.rating||0);scannedCover=b.cover||'';$('formTitle').textContent='Editar libro';$('saveBtn').textContent='Guardar cambios';$('cancelEdit').classList.remove('hidden');showDuplicateWarning();window.scrollTo({top:0,behavior:'smooth'});}
+function editBook(id){const b=books.find(x=>x.id===id);if(!b)return;$('bookId').value=b.id;$('title').value=b.title;$('author').value=b.author;$('status').value=b.status;$('isbn').value=b.isbn||'';$('comments').value=b.comments||'';$('rating').value=String(b.rating||0);scannedCover=b.cover||'';const m=/^E(\d+)\s*·\s*B(\d+)$/.exec(b.location||'');if(m){$('shelfNum').value=m[1];$('rowNum').value=m[2];}else if(/^E(\d+)$/.test(b.location||'')){$('shelfNum').value=b.location.slice(1);$('rowNum').value='';}else if(/^B(\d+)$/.test(b.location||'')){$('shelfNum').value='';$('rowNum').value=b.location.slice(1);}else{$('shelfNum').value='';$('rowNum').value='';}$('formTitle').textContent='Editar libro';$('saveBtn').textContent='Guardar cambios';$('cancelEdit').classList.remove('hidden');showDuplicateWarning();window.scrollTo({top:0,behavior:'smooth'});}
 function deleteBook(id){const b=books.find(x=>x.id===id);if(!b)return;const removed=b;const idx=books.findIndex(x=>x.id===id);books=books.filter(x=>x.id!==id);persist();toast('“'+removed.title+'” eliminado','Deshacer',()=>{books.splice(idx,0,removed);persist();});}
 function quickStatusChange(id,newStatus){const b=books.find(x=>x.id===id);if(!b)return;const prev=b.status;b.status=newStatus;persist();toast('Estado: '+newStatus,'Deshacer',()=>{b.status=prev;persist();});}
 
@@ -191,14 +197,44 @@ document.getElementById('quickSaveBtn').addEventListener('click',()=>{
 
 /* ---------- Render ---------- */
 function updateStats(){$('statTotal').textContent=books.length;$('statRead').textContent=books.filter(b=>b.status==='Leído').length;$('statPending').textContent=books.filter(b=>b.status==='Pendiente de leer').length;$('statPaused').textContent=books.filter(b=>b.status==='En pausa').length;}
-function render(){updateStats();const q=norm($('search').value),status=$('statusFilter').value,sort=$('sortBy').value;let filtered=books.filter(b=>(!status||b.status===status)&&[b.title,b.author,b.status,b.location,b.isbn,b.comments].some(v=>norm(v).includes(q)));filtered.sort((a,b)=>sort==='author'?norm(a.author).localeCompare(norm(b.author),'es')||norm(a.title).localeCompare(norm(b.title),'es'):sort==='location'?norm(a.location).localeCompare(norm(b.location),'es')||norm(a.title).localeCompare(norm(b.title),'es'):sort==='newest'?String(b.createdAt).localeCompare(String(a.createdAt)):sort==='rating'?(b.rating||0)-(a.rating||0):norm(a.title).localeCompare(norm(b.title),'es'));$('count').textContent=filtered.length+' libro(s) mostrado(s) · '+books.length+' en total';const list=$('bookList');list.className=currentView==='grid'?'book-grid':'book-list';if(!filtered.length){if(!books.length){list.innerHTML='<div class="empty-guided"><h3>Tu biblioteca está vacía</h3><p>Empieza a registrar tus libros en tres pasos.</p><ol><li><strong>Escanea</strong> el ISBN con la cámara o dicta el título.</li><li><strong>Revisa</strong> los datos que se rellenan solos.</li><li><strong>Guarda</strong> y añade la ubicación en tu estantería.</li></ol><button class="primary" type="button" id="emptyAddBtn">＋ Añadir mi primer libro</button></div>';const btn=document.getElementById('emptyAddBtn');if(btn)btn.addEventListener('click',()=>{resetForm();document.getElementById('title').focus();window.scrollTo({top:0,behavior:'smooth'});});}else{list.innerHTML='<div class="empty">No hay resultados con esos filtros.</div>';}return;}list.innerHTML=filtered.map(b=>{const cover=b.cover&&/^https:\/\//i.test(b.cover)?'<img class="cover" src="'+esc(b.cover)+'" alt="Portada de '+esc(b.title)+'" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="cover cover-placeholder" aria-hidden="true">📖</div>';const stars=b.rating?'<div class="stars">'+'★'.repeat(b.rating)+'☆'.repeat(5-b.rating)+'</div>':'';const comment=b.comments?'<div class="comment">'+esc(b.comments)+'</div>':'';return '<article class="book '+(currentView==='grid'?'grid-card':'')+'"><div class="book-row">'+(currentView==='list'?cover:'')+'<div class="book-body">'+(currentView==='grid'?cover:'')+'<div class="book-title">'+esc(b.title)+'</div><div class="book-meta">'+esc(b.author||'Autor no indicado')+'</div>'+stars+'<div class="chips"><span class="chip">'+esc(b.status)+'</span><span class="chip">📍 '+esc(b.location||'Sin ubicación')+'</span>'+(b.isbn?'<span class="chip">ISBN '+esc(b.isbn)+'</span>':'')+'</div>'+comment+'<div class="book-actions"><select data-quick="'+esc(b.id)+'" aria-label="Cambiar estado">'+['Pendiente de leer','Leyendo','Leído','En pausa'].map(s=>'<option'+(s===b.status?' selected':'')+'>'+s+'</option>').join('')+'</select><button class="secondary" type="button" data-edit="'+esc(b.id)+'" title="Editar">✏️</button><button class="danger" type="button" data-delete="'+esc(b.id)+'" title="Eliminar">🗑️</button></div></div></div></article>';}).join('');list.querySelectorAll('[data-edit]').forEach(x=>x.addEventListener('click',()=>editBook(x.dataset.edit)));list.querySelectorAll('[data-delete]').forEach(x=>x.addEventListener('click',()=>deleteBook(x.dataset.delete)));list.querySelectorAll('[data-quick]').forEach(x=>x.addEventListener('change',()=>quickStatusChange(x.dataset.quick,x.value)));}
-$('search').addEventListener('input',render);$('statusFilter').addEventListener('change',render);$('sortBy').addEventListener('change',render);$('listView').addEventListener('click',()=>setView('list'));$('gridView').addEventListener('click',()=>setView('grid'));function setView(v){currentView=v;$('listView').setAttribute('aria-pressed',String(v==='list'));$('gridView').setAttribute('aria-pressed',String(v==='grid'));render();}
+function render(){
+  updateStats();
+  const q=norm($('search').value),status=$('statusFilter').value,sort=$('sortBy').value,shelfF=$('shelfFilter').value,rowF=$('rowFilter').value;
+  let filtered=books.filter(b=>{
+    if(status&&b.status!==status)return false;
+    if(shelfF){const m=/^E(\d+)/.exec(b.location||'');if(!m||m[1]!==shelfF)return false;}
+    if(rowF){const m=/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'')||/^B(\d+)$/.exec(b.location||'');if(!m||m[1]!==rowF)return false;}
+    return [b.title,b.author,b.status,b.location,b.isbn,b.comments].some(v=>norm(v).includes(q));
+  });
+  filtered.sort((a,b)=>sort==='author'?norm(a.author).localeCompare(norm(b.author),'es')||norm(a.title).localeCompare(norm(b.title),'es'):sort==='location'?norm(a.location).localeCompare(norm(b.location),'es')||norm(a.title).localeCompare(norm(b.title),'es'):sort==='newest'?String(b.createdAt).localeCompare(String(a.createdAt)):sort==='rating'?(b.rating||0)-(a.rating||0):norm(a.title).localeCompare(norm(b.title),'es'));
+  $('count').textContent=filtered.length+' libro(s) mostrado(s) · '+books.length+' en total';
+  const list=$('bookList');list.className=currentView==='grid'?'book-grid':'book-list';
+  if(!filtered.length){
+    if(!books.length){
+      list.innerHTML='<div class="empty-guided"><h3>Tu biblioteca está vacía</h3><p>Empieza a registrar tus libros en tres pasos.</p><ol><li><strong>Escanea</strong> el ISBN con la cámara o dicta el título.</li><li><strong>Revisa</strong> los datos que se rellenan solos.</li><li><strong>Guarda</strong> y añade la ubicación en tu estantería.</li></ol><button class="primary" type="button" id="emptyAddBtn">＋ Añadir mi primer libro</button></div>';
+      const btn=document.getElementById('emptyAddBtn');if(btn)btn.addEventListener('click',()=>{resetForm();document.getElementById('title').focus();window.scrollTo({top:0,behavior:'smooth'});});
+    }else{list.innerHTML='<div class="empty">No hay resultados con esos filtros.</div>';}
+    return;
+  }
+  list.innerHTML=filtered.map(b=>{
+    const cover=b.cover&&/^https:\/\//i.test(b.cover)?'<img class="cover" src="'+esc(b.cover)+'" alt="Portada de '+esc(b.title)+'" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="cover cover-placeholder" aria-hidden="true">📖</div>';
+    const stars=b.rating?'<div class="stars">'+'★'.repeat(b.rating)+'☆'.repeat(5-b.rating)+'</div>':'';
+    const comment=b.comments?'<div class="comment">'+esc(b.comments)+'</div>':'';
+    return '<article class="book '+(currentView==='grid'?'grid-card':'')+'"><div class="book-row">'+(currentView==='list'?cover:'')+'<div class="book-body">'+(currentView==='grid'?cover:'')+'<div class="book-title">'+esc(b.title)+'</div><div class="book-meta">'+esc(b.author||'Autor no indicado')+'</div>'+stars+'<div class="chips"><span class="chip">'+esc(b.status)+'</span><span class="chip">📍 '+esc(formatLocation(b.location))+'</span>'+(b.isbn?'<span class="chip">ISBN '+esc(b.isbn)+'</span>':'')+'</div>'+comment+'<div class="book-actions"><select data-quick="'+esc(b.id)+'" aria-label="Cambiar estado">'+['Pendiente de leer','Leyendo','Leído','En pausa'].map(s=>'<option'+(s===b.status?' selected':'')+'>'+s+'</option>').join('')+'</select><button class="secondary" type="button" data-edit="'+esc(b.id)+'" title="Editar">✏️</button><button class="danger" type="button" data-delete="'+esc(b.id)+'" title="Eliminar">🗑️</button></div></div></div></article>';
+  }).join('');
+  list.querySelectorAll('[data-edit]').forEach(x=>x.addEventListener('click',()=>editBook(x.dataset.edit)));
+  list.querySelectorAll('[data-delete]').forEach(x=>x.addEventListener('click',()=>deleteBook(x.dataset.delete)));
+  list.querySelectorAll('[data-quick]').forEach(x=>x.addEventListener('change',()=>quickStatusChange(x.dataset.quick,x.value)));
+}
+$('search').addEventListener('input',render);$('statusFilter').addEventListener('change',render);$('sortBy').addEventListener('change',render);$('shelfFilter').addEventListener('change',render);$('rowFilter').addEventListener('change',render);
+$('listView').addEventListener('click',()=>setView('list'));$('gridView').addEventListener('click',()=>setView('grid'));
+function setView(v){currentView=v;$('listView').setAttribute('aria-pressed',String(v==='list'));$('gridView').setAttribute('aria-pressed',String(v==='grid'));render();}
 $('fabAdd').addEventListener('click',()=>{resetForm();$('title').focus();window.scrollTo({top:0,behavior:'smooth'});});
 
 /* ---------- Exportaciones ---------- */
 function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
-$('exportXlsx').addEventListener('click',()=>{if(typeof XLSX==='undefined'){toast('No se pudo cargar el generador de Excel.');return;}const data=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:b.location,ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');XLSX.writeFile(wb,'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Excel exportado');});
-$('exportJson').addEventListener('click',()=>{const payload={app:'Mi Biblioteca',version:4,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');toast('Copia JSON creada');});
+$('exportXlsx').addEventListener('click',()=>{if(typeof XLSX==='undefined'){toast('No se pudo cargar el generador de Excel.');return;}const data=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:formatLocation(b.location),ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');XLSX.writeFile(wb,'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Excel exportado');});
+$('exportJson').addEventListener('click',()=>{const payload={app:'Mi Biblioteca',version:5,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');toast('Copia JSON creada');});
 
 /* ---------- Importación ---------- */
 $('importJsonBtn').addEventListener('click',()=>$('importFile').click());
@@ -275,7 +311,7 @@ async function buscarLibroPorISBN(rawIsbn){
         }catch(e){failures++;}
     }
 
-       if(!info || !info.title){
+    if(!info || !info.title){
         if(failures>=3) throw Error('No se pudo conectar con los catálogos. Revisa tu conexión a Internet y vuelve a intentarlo. El ISBN se conserva.');
         throw Error('ISBN válido, pero los catálogos aún no tienen ficha de este libro (suele pasar con novedades o ediciones poco indexadas). Escribe el título y el autor a mano, o pulsa “🔍 Buscar portada por título”.');
     }
@@ -352,7 +388,7 @@ async function buscarPortadaPorTitulo(){
 }
 $('findCoverBtn').addEventListener('click',buscarPortadaPorTitulo);
 
-/* ---------- Escáner: CONFIGURACIÓN ORIGINAL QUE FUNCIONABA ---------- */
+/* ---------- Escáner: configuración original + linterna ---------- */
 $('scanIsbn').addEventListener('click',startScanner);
 async function startScanner(){
     const video=$('scannerVideo');
@@ -361,7 +397,7 @@ async function startScanner(){
     try{
         $('scannerPanel').classList.remove('hidden');
         $('scannerMessage').textContent='Solicitando permiso de cámara…';
-        // --- CONFIGURACIÓN ORIGINAL: una sola llamada a getUserMedia, sin enumerateDevices, y decodeFromVideoDevice(null,...) ---
+        // Petición inicial de permiso (necesaria para que luego el track tenga getCapabilities)
         const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
         stream.getTracks().forEach(t=>t.stop());
         codeReader=new ZXingBrowser.BrowserMultiFormatReader();
@@ -372,12 +408,12 @@ async function startScanner(){
             if(!/^(97[89]\d{10}|\d{9}[\dX])$/.test(raw)){$('scannerMessage').textContent='No parece un ISBN válido. Enfoca el código de barras del libro.';return;}
             scanBusy=true;$('isbn').value=raw;$('scannerMessage').textContent='ISBN detectado. Buscando información…';
             try{controls?.stop();const lookupResult=await buscarLibroPorISBN(raw);showDuplicateWarning();$('scannerMessage').textContent='Datos encontrados en '+lookupResult.source+'. Revisa y guarda el libro.';}
-catch(e){
-    const msg = e.message || 'No se encontró información. Puedes completar los campos manualmente.';
-    $('scannerMessage').textContent = msg;
-    setLookupMessage(msg, 'error');
-}            finally{scanBusy=false;stopScanner(false);}
+            catch(e){const msg=e.message||'No se encontró información. Puedes completar los campos manualmente.';$('scannerMessage').textContent=msg;setLookupMessage(msg,'error');}
+            finally{scanBusy=false;stopScanner(false);}
         });
+        // Cuando ZXing ya está emitiendo, el <video> tiene srcObject con el track real.
+        // Esperamos un poco a que se asigne y comprobamos si soporta torch.
+        detectTorch(video);
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
         if(['NotAllowedError','PermissionDeniedError'].includes(e.name))msg='Chrome ha denegado el acceso. Revisa el permiso de la página.';
@@ -387,12 +423,40 @@ catch(e){
         $('scannerMessage').textContent=msg;toast(msg);stopScanner(false);
     }
 }
+function detectTorch(video){
+    let tries=0;
+    const timer=setInterval(()=>{
+        tries++;
+        const s=video.srcObject;
+        if(s&&s.getVideoTracks){
+            const track=s.getVideoTracks()[0];
+            if(track){
+                const caps=track.getCapabilities?track.getCapabilities():{};
+                if(caps&&caps.torch){
+                    currentStream=track;
+                    $('torchBtn').hidden=false;
+                    clearInterval(timer);
+                    return;
+                }
+            }
+        }
+        if(tries>20)clearInterval(timer); // ~2s máximo
+    },100);
+}
+$('torchBtn').addEventListener('click',async()=>{
+    if(!currentStream)return;
+    try{
+        torchOn=!torchOn;
+        await currentStream.applyConstraints({advanced:[{torch:torchOn}]});
+        $('torchBtn').textContent=torchOn?'🔦 Linterna ON':'💡 Linterna';
+    }catch(e){toast('La linterna no está disponible en este dispositivo.');}
+});
 function stopScanner(){
     try{scannerControls?.stop();}catch(e){}
     try{codeReader?.reset();}catch(e){}
     try{$('scannerVideo').srcObject?.getTracks().forEach(t=>t.stop());}catch(e){}
-    scannerControls=null;codeReader=null;scanBusy=false;
-    $('torchBtn').hidden=true;
+    scannerControls=null;codeReader=null;scanBusy=false;currentStream=null;torchOn=false;
+    $('torchBtn').hidden=true;$('torchBtn').textContent='💡 Linterna';
     $('scannerPanel').classList.add('hidden');
 }
 $('stopScanner').addEventListener('click',()=>stopScanner());
