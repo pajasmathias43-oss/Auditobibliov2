@@ -113,7 +113,7 @@ details.backup .backup-body button{font-size:.85rem}
   <div class="stat"><strong id="statPaused">0</strong><span>En pausa</span></div>
 </section>
 <section class="card"><h2 id="formTitle">Añadir un libro</h2><form id="bookForm"><input type="hidden" id="bookId"><div class="form-grid">
-<div class="full"><label for="title">Título * <button type="button" class="mic-btn" data-mic="title">🎤 Dictar</button></label><input id="title" autocomplete="off" required placeholder="Puedes dictarlo con el micrófono del teclado"><button class="secondary" type="button" id="findCoverBtn" style="width:100%;margin-top:6px">🔍 Buscar portada por título</button><button class="secondary" type="button" id="scanIsbn" style="width:100%;margin-top:6px">📷 Escanear ISBN con la cámara</button><div id="scannerPanel" class="hidden" style="margin-top:10px"><div class="scanner-wrap"><video id="scannerVideo" playsinline autoplay muted></video><div class="scanner-guide"></div></div><p class="hint" id="scannerMessage">Apunta al código de barras ISBN de la contraportada.</p><button class="secondary" type="button" id="torchBtn" style="width:100%;margin-top:6px" hidden>💡 Linterna</button><button class="danger" type="button" id="stopScanner" style="width:100%;margin-top:6px">Cerrar cámara</button></div></div>
+<div class="full"><label for="title">Título * <button type="button" class="mic-btn" data-mic="title">🎤 Dictar</button></label><input id="title" autocomplete="off" required placeholder="Puedes dictarlo con el micrófono del teclado"><button class="secondary" type="button" id="scanIsbn" style="width:100%;margin-top:8px">📷 Escanear ISBN con la cámara</button><div id="scannerPanel" class="hidden" style="margin-top:10px"><div class="scanner-wrap"><video id="scannerVideo" playsinline autoplay muted></video><div class="scanner-guide"></div></div><p class="hint" id="scannerMessage">Apunta al código de barras ISBN de la contraportada.</p><button class="secondary" type="button" id="torchBtn" style="width:100%;margin-top:6px" hidden>💡 Linterna</button><button class="danger" type="button" id="stopScanner" style="width:100%;margin-top:6px">Cerrar cámara</button></div></div>
 <div><label for="author">Autor <button type="button" class="mic-btn" data-mic="author">🎤</button></label><input id="author" autocomplete="off" placeholder="Nombre del autor"></div><div><label for="isbn">ISBN (opcional)</label><input id="isbn" inputmode="numeric" autocomplete="off" placeholder="978…"><button class="secondary" type="button" id="lookupIsbn" style="width:100%;margin-top:6px">Buscar datos por ISBN</button><p class="hint" id="isbnLookupMessage" role="status" aria-live="polite">Se consultarán varios catálogos si el libro no aparece a la primera.</p></div>
 <div><label for="status">Estado</label><select id="status"><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select></div><div><label for="rating">Valoración</label><select id="rating"><option value="0">Sin valorar</option><option value="1">★ 1</option><option value="2">★★ 2</option><option value="3">★★★ 3</option><option value="4">★★★★ 4</option><option value="5">★★★★★ 5</option></select></div>
 <div class="full" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -169,12 +169,67 @@ function autoBackup(){try{const now=new Date();localStorage.setItem(BACKUP_KEY,J
 function updateLastBackupLabel(date){const el=document.getElementById('lastBackup');if(!el)return;if(!date){try{const raw=localStorage.getItem(BACKUP_KEY);if(raw){const d=JSON.parse(raw).savedAt;if(d)date=new Date(d);}}catch(e){}}if(date){el.textContent='Hecho con cariño para mi biblioteca · Última copia: '+date.toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'});}else{el.textContent='Hecho con cariño para mi biblioteca.';}}
 function persist(){autoBackup();try{localStorage.setItem(STORAGE_KEY,JSON.stringify(books));render();}catch(e){toast('No se han podido guardar los cambios. Exporta una copia.');}}
 
+/* ---------- Búsqueda automática de portada ---------- */
+async function autoBuscarPortada(libro){
+    if(!libro || libro.cover) return false;
+    const title=(libro.title||'').trim();
+    if(!title) return false;
+    const author=(libro.author||'').trim();
+    try{
+        const q=encodeURIComponent(title+(author?' '+author:''));
+        const data=await fetchJson('https://www.googleapis.com/books/v1/volumes?q='+q+'&maxResults=3&printType=books');
+        const items=data.items||[];
+        for(const item of items){
+            const v=item.volumeInfo;
+            if(!v?.title) continue;
+            const img=v.imageLinks?.extraLarge||v.imageLinks?.large||v.imageLinks?.medium||v.imageLinks?.thumbnail||v.imageLinks?.smallThumbnail||'';
+            if(img){
+                const real=books.find(b=>b.id===libro.id);
+                if(real){
+                    real.cover=img.replace(/^http:\/\//i,'https://');
+                    if(!real.author && v.authors && v.authors.length) real.author=v.authors.join(', ');
+                    persist();
+                }
+                return true;
+            }
+        }
+        const data2=await fetchJson('https://openlibrary.org/search.json?title='+encodeURIComponent(title)+'&limit=3');
+        const docs=data2.docs||[];
+        for(const doc of docs){
+            if(doc.cover_i){
+                const real=books.find(b=>b.id===libro.id);
+                if(real){
+                    real.cover='https://covers.openlibrary.org/b/id/'+doc.cover_i+'-M.jpg?default=false';
+                    if(!real.author && doc.author_name && doc.author_name.length) real.author=doc.author_name.join(', ');
+                    persist();
+                }
+                return true;
+            }
+        }
+    }catch(e){/* silencioso */}
+    return false;
+}
+async function completarPortadasPendientes(){
+    const pendientes=books.filter(b=>!b.cover).slice(0,10);
+    if(!pendientes.length) return;
+    let encontradas=0;
+    for(const b of pendientes){
+        const ok=await autoBuscarPortada(b);
+        if(ok) encontradas++;
+        await new Promise(r=>setTimeout(r,300));
+    }
+    if(encontradas>0) toast('Portadas encontradas: '+encontradas);
+}
+
 /* ---------- Formulario ---------- */
 function resetForm(){$('bookForm').reset();$('bookId').value='';$('formTitle').textContent='Añadir un libro';$('saveBtn').textContent='Guardar libro';$('cancelEdit').classList.add('hidden');$('duplicateNotice').classList.add('hidden');$('status').value='Pendiente de leer';$('rating').value='0';$('shelfNum').value='';$('rowNum').value='';scannedCover='';hideQuickSave();}
 function findDuplicates(title,author,isbn,excludeId=''){const cleanIsbn=String(isbn||'').replace(/[^0-9Xx]/g,'').toUpperCase();return books.filter(b=>b.id!==excludeId&&((cleanIsbn&&String(b.isbn||'').replace(/[^0-9Xx]/g,'').toUpperCase()===cleanIsbn)||(norm(title)&&norm(b.title)===norm(title)&&(!author||!b.author||norm(b.author)===norm(author)))));}
 function showDuplicateWarning(){const title=$('title').value.trim(),author=$('author').value.trim(),isbn=$('isbn').value.trim();const d=findDuplicates(title,author,isbn,$('bookId').value);const el=$('duplicateNotice');if(d.length){el.textContent='Posible duplicado: '+d.map(b=>'“'+b.title+'”'+(b.location?' ('+formatLocation(b.location)+')':'')).join(', ')+'. Puedes revisar la colección antes de guardar.';el.classList.remove('hidden');}else el.classList.add('hidden');}
 ['title','author','isbn'].forEach(id=>$(id).addEventListener('input',showDuplicateWarning));
-$('bookForm').addEventListener('submit',e=>{e.preventDefault();const title=$('title').value.trim(),author=$('author').value.trim(),status=$('status').value,isbn=$('isbn').value.trim().replace(/[^0-9Xx]/g,'').toUpperCase(),id=$('bookId').value;const shelfNum=$('shelfNum').value,rowNum=$('rowNum').value;let location='';if(shelfNum&&rowNum)location='E'+shelfNum+' · B'+rowNum;else if(shelfNum)location='E'+shelfNum;else if(rowNum)location='B'+rowNum;if(!title){toast('Escribe o dicta el título del libro.');return;}const dup=findDuplicates(title,author,isbn,id);if(dup.length&&!confirm('Hay uno o más posibles duplicados: '+dup.map(b=>b.title).join(', ')+'. ¿Quieres guardar de todos modos?'))return;const old=books.find(b=>b.id===id);const item={...(old||{}),id:id||safeId(),title,author,status,location,isbn,cover:scannedCover||old?.cover||'',createdAt:old?.createdAt||new Date().toISOString(),comments:$('comments').value.trim(),rating:Number($('rating').value)||0};scannedCover='';if(id){const i=books.findIndex(b=>b.id===id);if(i>=0)books[i]=item;}else books.unshift(item);persist();resetForm();window.scrollTo({top:0,behavior:'smooth'});toast(id?'Libro actualizado':'Libro añadido');});
+$('bookForm').addEventListener('submit',e=>{e.preventDefault();const title=$('title').value.trim(),author=$('author').value.trim(),status=$('status').value,isbn=$('isbn').value.trim().replace(/[^0-9Xx]/g,'').toUpperCase(),id=$('bookId').value;const shelfNum=$('shelfNum').value,rowNum=$('rowNum').value;let location='';if(shelfNum&&rowNum)location='E'+shelfNum+' · B'+rowNum;else if(shelfNum)location='E'+shelfNum;else if(rowNum)location='B'+rowNum;if(!title){toast('Escribe o dicta el título del libro.');return;}const dup=findDuplicates(title,author,isbn,id);if(dup.length&&!confirm('Hay uno o más posibles duplicados: '+dup.map(b=>b.title).join(', ')+'. ¿Quieres guardar de todos modos?'))return;const old=books.find(b=>b.id===id);const item={...(old||{}),id:id||safeId(),title,author,status,location,isbn,cover:scannedCover||old?.cover||'',createdAt:old?.createdAt||new Date().toISOString(),comments:$('comments').value.trim(),rating:Number($('rating').value)||0};scannedCover='';if(id){const i=books.findIndex(b=>b.id===id);if(i>=0)books[i]=item;}else books.unshift(item);persist();resetForm();window.scrollTo({top:0,behavior:'smooth'});toast(id?'Libro actualizado':'Libro añadido');
+// Si el libro no tiene portada, se busca automáticamente en segundo plano
+if(!item.cover){autoBuscarPortada(item).then(ok=>{if(ok)toast('Portada encontrada para “'+item.title+'”');});}
+});
 $('cancelEdit').addEventListener('click',resetForm);
 function editBook(id){const b=books.find(x=>x.id===id);if(!b)return;$('bookId').value=b.id;$('title').value=b.title;$('author').value=b.author;$('status').value=b.status;$('isbn').value=b.isbn||'';$('comments').value=b.comments||'';$('rating').value=String(b.rating||0);scannedCover=b.cover||'';const m=/^E(\d+)\s*·\s*B(\d+)$/.exec(b.location||'');if(m){$('shelfNum').value=m[1];$('rowNum').value=m[2];}else if(/^E(\d+)$/.test(b.location||'')){$('shelfNum').value=b.location.slice(1);$('rowNum').value='';}else if(/^B(\d+)$/.test(b.location||'')){$('shelfNum').value='';$('rowNum').value=b.location.slice(1);}else{$('shelfNum').value='';$('rowNum').value='';}$('formTitle').textContent='Editar libro';$('saveBtn').textContent='Guardar cambios';$('cancelEdit').classList.remove('hidden');showDuplicateWarning();window.scrollTo({top:0,behavior:'smooth'});}
 function deleteBook(id){const b=books.find(x=>x.id===id);if(!b)return;const removed=b;const idx=books.findIndex(x=>x.id===id);books=books.filter(x=>x.id!==id);persist();toast('“'+removed.title+'” eliminado','Deshacer',()=>{books.splice(idx,0,removed);persist();});}
@@ -193,6 +248,7 @@ document.getElementById('quickSaveBtn').addEventListener('click',()=>{
   const item={id:safeId(),title,author,status:'Pendiente de leer',location:'',isbn,cover:scannedCover||'',createdAt:new Date().toISOString(),comments:'',rating:0};
   books.unshift(item);scannedCover='';persist();resetForm();hideQuickSave();window.scrollTo({top:0,behavior:'smooth'});
   toast('“'+title+'” guardado rápido','Deshacer',()=>{books=books.filter(b=>b.id!==item.id);persist();});
+  if(!item.cover){autoBuscarPortada(item).then(ok=>{if(ok)toast('Portada encontrada para “'+item.title+'”');});}
 });
 
 /* ---------- Render ---------- */
@@ -234,7 +290,7 @@ $('fabAdd').addEventListener('click',()=>{resetForm();$('title').focus();window.
 /* ---------- Exportaciones ---------- */
 function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 $('exportXlsx').addEventListener('click',()=>{if(typeof XLSX==='undefined'){toast('No se pudo cargar el generador de Excel.');return;}const data=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:formatLocation(b.location),ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');XLSX.writeFile(wb,'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Excel exportado');});
-$('exportJson').addEventListener('click',()=>{const payload={app:'Mi Biblioteca',version:5,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');toast('Copia JSON creada');});
+$('exportJson').addEventListener('click',()=>{const payload={app:'Mi Biblioteca',version:6,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');toast('Copia JSON creada');});
 
 /* ---------- Importación ---------- */
 $('importJsonBtn').addEventListener('click',()=>$('importFile').click());
@@ -313,7 +369,7 @@ async function buscarLibroPorISBN(rawIsbn){
 
     if(!info || !info.title){
         if(failures>=3) throw Error('No se pudo conectar con los catálogos. Revisa tu conexión a Internet y vuelve a intentarlo. El ISBN se conserva.');
-        throw Error('ISBN válido, pero los catálogos aún no tienen ficha de este libro (suele pasar con novedades o ediciones poco indexadas). Escribe el título y el autor a mano, o pulsa “🔍 Buscar portada por título”.');
+        throw Error('ISBN válido, pero los catálogos aún no tienen ficha de este libro (suele pasar con novedades o ediciones poco indexadas). Escribe el título y el autor a mano.');
     }
 
     if(!info.authors || info.authors.length===0){
@@ -342,52 +398,6 @@ function applyBookInfo(info){
 
 $('lookupIsbn').addEventListener('click',async()=>{const isbn=normalizarISBN($('isbn').value);$('isbn').value=isbn;if(!isbn){setLookupMessage('Escribe un ISBN-10 o ISBN-13.','error');return;}if(!isbnValido(isbn)){setLookupMessage('El ISBN no supera la comprobación de dígito. Revisa los números; también puedes continuar manualmente.','error');return;}const btn=$('lookupIsbn');btn.disabled=true;btn.textContent='Buscando…';setLookupMessage('Consultando catálogos…','loading');try{const result=await buscarLibroPorISBN(isbn);setLookupMessage('Datos encontrados en '+result.source+'. Revisa el título y el autor antes de guardar.','success');}catch(e){setLookupMessage(e.message||'No se encontró información. El ISBN se conserva.','error');}finally{btn.disabled=false;btn.textContent='Buscar datos por ISBN';}});
 
-/* ---------- Búsqueda por título para portada ---------- */
-async function buscarPortadaPorTitulo(){
-    const title=$('title').value.trim();
-    const author=$('author').value.trim();
-    if(!title){toast('Escribe primero el título.');return;}
-    const btn=$('findCoverBtn');btn.disabled=true;btn.textContent='Buscando…';
-    let found=false;
-    try{
-        const q=encodeURIComponent(title+(author?' '+author:''));
-        const data=await fetchJson('https://www.googleapis.com/books/v1/volumes?q='+q+'&maxResults=5&printType=books');
-        const items=data.items||[];
-        for(const item of items){
-            const v=item.volumeInfo;
-            if(!v?.title) continue;
-            const img=v.imageLinks?.extraLarge||v.imageLinks?.large||v.imageLinks?.medium||v.imageLinks?.thumbnail||v.imageLinks?.smallThumbnail||'';
-            if(img){
-                scannedCover=img.replace(/^http:\/\//i,'https://');
-                if(!$('author').value && v.authors && v.authors.length){
-                    $('author').value=v.authors.join(', ');
-                }
-                found=true;
-                toast('Portada encontrada');
-                break;
-            }
-        }
-        if(!found){
-            const data2=await fetchJson('https://openlibrary.org/search.json?title='+encodeURIComponent(title)+'&limit=5');
-            const docs=data2.docs||[];
-            for(const doc of docs){
-                if(doc.cover_i){
-                    scannedCover='https://covers.openlibrary.org/b/id/'+doc.cover_i+'-M.jpg?default=false';
-                    if(!$('author').value && doc.author_name && doc.author_name.length){
-                        $('author').value=doc.author_name.join(', ');
-                    }
-                    found=true;
-                    toast('Portada encontrada en Open Library');
-                    break;
-                }
-            }
-        }
-        if(!found) toast('No se encontró portada para ese título.');
-    }catch(e){toast('No se pudo buscar la portada. Revisa la conexión.');}
-    finally{btn.disabled=false;btn.textContent='🔍 Buscar portada por título';}
-}
-$('findCoverBtn').addEventListener('click',buscarPortadaPorTitulo);
-
 /* ---------- Escáner: configuración original + linterna ---------- */
 $('scanIsbn').addEventListener('click',startScanner);
 async function startScanner(){
@@ -397,7 +407,6 @@ async function startScanner(){
     try{
         $('scannerPanel').classList.remove('hidden');
         $('scannerMessage').textContent='Solicitando permiso de cámara…';
-        // Petición inicial de permiso (necesaria para que luego el track tenga getCapabilities)
         const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
         stream.getTracks().forEach(t=>t.stop());
         codeReader=new ZXingBrowser.BrowserMultiFormatReader();
@@ -411,8 +420,6 @@ async function startScanner(){
             catch(e){const msg=e.message||'No se encontró información. Puedes completar los campos manualmente.';$('scannerMessage').textContent=msg;setLookupMessage(msg,'error');}
             finally{scanBusy=false;stopScanner(false);}
         });
-        // Cuando ZXing ya está emitiendo, el <video> tiene srcObject con el track real.
-        // Esperamos un poco a que se asigne y comprobamos si soporta torch.
         detectTorch(video);
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
@@ -440,7 +447,7 @@ function detectTorch(video){
                 }
             }
         }
-        if(tries>20)clearInterval(timer); // ~2s máximo
+        if(tries>20)clearInterval(timer);
     },100);
 }
 $('torchBtn').addEventListener('click',async()=>{
@@ -463,5 +470,7 @@ $('stopScanner').addEventListener('click',()=>stopScanner());
 
 /* ---------- Arranque ---------- */
 loadSettings();loadBooks();render();updateLastBackupLabel();
+// Al cargar, intentar completar portadas de libros que no la tengan (máx. 10)
+setTimeout(()=>{completarPortadasPendientes();},1500);
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script></body></html>
