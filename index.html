@@ -141,7 +141,6 @@ const ISBN_CACHE_KEY='mi-biblioteca-isbn-cache';
 const SETTINGS_KEY='mi-biblioteca-settings';
 const $=id=>document.getElementById(id);
 let books=[];let deferredInstallPrompt=null;let currentView='list';let codeReader=null;let scannerControls=null;let scanBusy=false;let scannedCover='';
-let currentStream=null;let torchOn=false;
 let recognition=null;
 
 /* ---------- Ajustes ---------- */
@@ -353,7 +352,7 @@ async function buscarPortadaPorTitulo(){
 }
 $('findCoverBtn').addEventListener('click',buscarPortadaPorTitulo);
 
-/* ---------- Escáner (versión simple original que funcionaba) ---------- */
+/* ---------- Escáner: CONFIGURACIÓN ORIGINAL QUE FUNCIONABA ---------- */
 $('scanIsbn').addEventListener('click',startScanner);
 async function startScanner(){
     const video=$('scannerVideo');
@@ -362,16 +361,12 @@ async function startScanner(){
     try{
         $('scannerPanel').classList.remove('hidden');
         $('scannerMessage').textContent='Solicitando permiso de cámara…';
+        // --- CONFIGURACIÓN ORIGINAL: una sola llamada a getUserMedia, sin enumerateDevices, y decodeFromVideoDevice(null,...) ---
         const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
         stream.getTracks().forEach(t=>t.stop());
-        const devices=await navigator.mediaDevices.enumerateDevices(),cams=devices.filter(d=>d.kind==='videoinput'),back=cams.find(d=>/back|rear|environment|trasera|posterior/i.test(d.label));
-        if(!cams.length)throw new Error('NotFoundError');
-
-        // Inicialización simple, sin hints (es la que funcionaba antes)
         codeReader=new ZXingBrowser.BrowserMultiFormatReader();
-
         $('scannerMessage').textContent='Enfoca el código de barras de la contraportada.';
-        scannerControls=await codeReader.decodeFromVideoDevice((back||cams[0]).deviceId,video,async(result,err,controls)=>{
+        scannerControls=await codeReader.decodeFromVideoDevice(null, video, async(result,err,controls)=>{
             if(!result||scanBusy)return;
             const raw=result.getText().replace(/[^0-9Xx]/g,'').toUpperCase();
             if(!/^(97[89]\d{10}|\d{9}[\dX])$/.test(raw)){$('scannerMessage').textContent='No parece un ISBN válido. Enfoca el código de barras del libro.';return;}
@@ -380,8 +375,6 @@ async function startScanner(){
             catch(e){$('scannerMessage').textContent=e.message||'No se encontró información. Puedes completar los campos manualmente.';setLookupMessage(e.message||'No se encontró información. Puedes completar los campos manualmente.','error');}
             finally{scanBusy=false;stopScanner(false);}
         });
-        // Detección opcional de linterna (protegida para no romper nada si falla)
-        try{const s=video.srcObject;if(s){const t=s.getVideoTracks()[0];const caps=t.getCapabilities?.()||{};if(caps.torch){$('torchBtn').hidden=false;currentStream=t;}}}catch(e){}
     }catch(e){
         let msg='No se pudo iniciar la cámara.';
         if(['NotAllowedError','PermissionDeniedError'].includes(e.name))msg='Chrome ha denegado el acceso. Revisa el permiso de la página.';
@@ -391,8 +384,14 @@ async function startScanner(){
         $('scannerMessage').textContent=msg;toast(msg);stopScanner(false);
     }
 }
-$('torchBtn').addEventListener('click',async()=>{if(!currentStream)return;try{torchOn=!torchOn;await currentStream.applyConstraints({advanced:[{torch:torchOn}]});$('torchBtn').textContent=torchOn?'🔦 Linterna ON':'💡 Linterna';}catch(e){toast('La linterna no está disponible en este dispositivo.');}});
-function stopScanner(){try{scannerControls?.stop();}catch(e){}try{codeReader?.reset();}catch(e){}try{$('scannerVideo').srcObject?.getTracks().forEach(t=>t.stop());}catch(e){}scannerControls=null;codeReader=null;scanBusy=false;currentStream=null;torchOn=false;$('torchBtn').hidden=true;$('torchBtn').textContent='💡 Linterna';$('scannerPanel').classList.add('hidden');}
+function stopScanner(){
+    try{scannerControls?.stop();}catch(e){}
+    try{codeReader?.reset();}catch(e){}
+    try{$('scannerVideo').srcObject?.getTracks().forEach(t=>t.stop());}catch(e){}
+    scannerControls=null;codeReader=null;scanBusy=false;
+    $('torchBtn').hidden=true;
+    $('scannerPanel').classList.add('hidden');
+}
 $('stopScanner').addEventListener('click',()=>stopScanner());
 
 /* ---------- Arranque ---------- */
