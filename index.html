@@ -50,12 +50,11 @@ button:hover{filter:brightness(.97)}
 .count{color:var(--muted);font-size:.84rem}
 .book-list{display:flex;flex-direction:column;gap:9px}
 .book-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.book{border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--card);min-width:0;transition:border-color .15s}
+.book{border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--card);min-width:0;transition:border-color .15s;position:relative}
 .book:hover{border-color:var(--accent-soft)}
 .book.highlight{animation:pulse 1.2s ease 2;border-color:var(--accent)}
 .book.selected{border-color:var(--accent);background:var(--accent-soft)}
 .book .book-checkbox{position:absolute;top:8px;right:8px;width:22px;height:22px;cursor:pointer}
-.book{position:relative}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--accent)}50%{box-shadow:0 0 0 4px var(--accent-soft)}}
 .book-row{display:flex;gap:12px}
 .cover{width:64px;height:94px;object-fit:contain;border-radius:6px;background:var(--bg);flex:0 0 auto}
@@ -163,8 +162,10 @@ details.stats-panel .stats-body{padding:0 14px 14px}
 <details class="stats-panel" id="statsPanel"><summary>📊 Estadísticas detalladas</summary><div class="stats-body" id="statsBody"></div></details>
 <details class="backup"><summary>⚙️ Copias de seguridad</summary><div class="backup-body">
 <button class="secondary" id="exportXlsx" type="button">📊 Exportar Excel</button>
+<button class="secondary" id="exportCsv" type="button">📄 Exportar CSV</button>
 <button class="secondary" id="exportJson" type="button">💾 Crear copia JSON</button>
 <button class="secondary" id="shareJson" type="button">📤 Compartir copia JSON</button>
+<button class="secondary" id="copyJson" type="button">📋 Copiar JSON</button>
 <button class="secondary" id="importJsonBtn" type="button">📥 Restaurar / importar</button>
 <button class="secondary" id="restoreAuto" type="button">🕓 Restaurar copia automática</button>
 <button class="secondary" id="checkUpdates" type="button">🔄 Buscar actualizaciones</button>
@@ -174,18 +175,19 @@ details.stats-panel .stats-body{padding:0 14px 14px}
 </section>
 </main>
 <button class="fab" id="fabAdd" title="Añadir libro">＋</button>
-<footer>Mi Biblioteca · Almacenamiento local y privado.<small id="lastBackup">Hecho con cariño para mi biblioteca.</small><span class="version"><span class="dot" id="unsavedDot"></span><span id="appVersion">v21.0</span></span></footer>
+<footer>Mi Biblioteca · Almacenamiento local y privado.<small id="lastBackup">Hecho con cariño para mi biblioteca.</small><span class="version"><span class="dot" id="unsavedDot"></span><span id="appVersion">v21.2</span></span></footer>
 <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <script>
 'use strict';
-const APP_VERSION='v21.0';
+const APP_VERSION='v21.2';
 const STORAGE_KEY='mi-biblioteca-libros-v1';
 const BACKUP_KEY='mi-biblioteca-backup-auto';
 const ISBN_CACHE_KEY='mi-biblioteca-isbn-cache';
 const SETTINGS_KEY='mi-biblioteca-settings';
 const SHELF_LABELS_KEY='mi-biblioteca-shelf-labels';
 const UNSAVED_KEY='mi-biblioteca-unsaved-changes';
+const LAST_EXPORT_KEY='mi-biblioteca-last-manual-export';
 const IDB_NAME='MiBibliotecaDB';
 const IDB_VERSION=1;
 const IDB_STORE='portadas';
@@ -246,6 +248,8 @@ function marcarCambio(){try{const n=parseInt(localStorage.getItem(UNSAVED_KEY)||
 function limpiarCambios(){try{localStorage.setItem(UNSAVED_KEY,'0');updateUnsavedDot();}catch(e){}}
 function hayCambios(){try{return parseInt(localStorage.getItem(UNSAVED_KEY)||'0',10)>0;}catch(e){return false;}}
 function updateUnsavedDot(){const d=$('unsavedDot');if(!d)return;d.classList.toggle('pending',hayCambios());}
+function diasDesdeUltimaExportacion(){try{const last=localStorage.getItem(LAST_EXPORT_KEY);if(!last)return 999;return (Date.now()-new Date(last).getTime())/(1000*60*60*24);}catch(e){return 999;}}
+function marcarExportacionManual(){try{localStorage.setItem(LAST_EXPORT_KEY,new Date().toISOString());limpiarCambios();}catch(e){}}
 
 /* ---------- Almacenamiento ---------- */
 function loadBooks(){try{const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');books=Array.isArray(s)?s.filter(b=>b&&typeof b.title==='string').map(normalizeBook):[];}catch(e){books=[];}}
@@ -316,41 +320,24 @@ $('quickSaveBtn').addEventListener('click',async()=>{const t=$('title').value.tr
 
 /* ---------- Render ---------- */
 function updateStats(){$('statTotal').textContent=books.length;$('statRead').textContent=books.filter(b=>b.status==='Leído').length;$('statPending').textContent=books.filter(b=>b.status==='Pendiente de leer').length;$('statPaused').textContent=books.filter(b=>b.status==='En pausa').length;}
-
-/* ---------- Estadísticas detalladas ---------- */
 function renderStats(){
   const body=$('statsBody');if(!body)return;
   if(!books.length){body.innerHTML='<p class="hint">Añade libros para ver estadísticas.</p>';return;}
-  const total=books.length;
-  const byShelf={};const byRow={};const byAuthor={};const byStatus={};
-  let ratingSum=0,ratingCount=0,withCover=0,withIsbn=0,thisYear=0;
-  const currentYear=new Date().getFullYear();
+  const total=books.length;const byShelf={};const byRow={};const byAuthor={};const byStatus={};
+  let ratingSum=0,ratingCount=0,withCover=0,withIsbn=0,thisYear=0;const currentYear=new Date().getFullYear();
   for(const b of books){
-    const mS=/^E(\d+)/.exec(b.location||'');
-    if(mS){const k=labelForShelf(mS[1]);byShelf[k]=(byShelf[k]||0)+1;}
-    const mR=/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'')||/^B(\d+)$/.exec(b.location||'');
-    if(mR){const k=labelForRow(mR[1]);byRow[k]=(byRow[k]||0)+1;}
+    const mS=/^E(\d+)/.exec(b.location||'');if(mS){const k=labelForShelf(mS[1]);byShelf[k]=(byShelf[k]||0)+1;}
+    const mR=/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'')||/^B(\d+)$/.exec(b.location||'');if(mR){const k=labelForRow(mR[1]);byRow[k]=(byRow[k]||0)+1;}
     if(b.author){(b.author.split(',').map(a=>a.trim())).forEach(a=>{if(a)byAuthor[a]=(byAuthor[a]||0)+1;});}
     byStatus[b.status]=(byStatus[b.status]||0)+1;
     if(b.rating>0){ratingSum+=b.rating;ratingCount++;}
-    if(b.cover)withCover++;
-    if(b.isbn)withIsbn++;
+    if(b.cover)withCover++;if(b.isbn)withIsbn++;
     if(b.createdAt&&new Date(b.createdAt).getFullYear()===currentYear)thisYear++;
   }
   const ratingAvg=ratingCount?(ratingSum/ratingCount).toFixed(1):'—';
   const sortObj=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]);
-  const barHtml=(entries,totalForBar)=>{
-    if(!entries.length)return '<p class="hint">Sin datos.</p>';
-    const max=entries[0][1];
-    return entries.map(([label,val])=>'<div class="bar-row"><span class="bar-label">'+esc(label)+'</span><span class="bar-track"><span class="bar-fill" style="width:'+(val/max*100)+'%"></span></span><span class="bar-val">'+val+'</span></div>').join('');
-  };
-  body.innerHTML=
-    '<div class="stat-summary"><div><strong>'+total+'</strong><span>Total</span></div><div><strong>'+ratingAvg+'</strong><span>Valoración media</span></div><div><strong>'+withCover+'</strong><span>Con portada</span></div></div>'+
-    '<div class="chart-row"><h4>Por estado</h4>'+barHtml(sortObj(byStatus))+'</div>'+
-    '<div class="chart-row"><h4>Por estantería</h4>'+barHtml(sortObj(byShelf))+'</div>'+
-    '<div class="chart-row"><h4>Por balda</h4>'+barHtml(sortObj(byRow))+'</div>'+
-    '<div class="chart-row"><h4>Autores más repetidos</h4>'+barHtml(sortObj(byAuthor).slice(0,8))+'</div>'+
-    '<div class="chart-row"><h4>Otros</h4><div class="hint">'+withIsbn+' con ISBN · '+thisYear+' añadidos en '+currentYear+'</div></div>';
+  const barHtml=(entries)=>{if(!entries.length)return '<p class="hint">Sin datos.</p>';const max=entries[0][1];return entries.map(([label,val])=>'<div class="bar-row"><span class="bar-label">'+esc(label)+'</span><span class="bar-track"><span class="bar-fill" style="width:'+(val/max*100)+'%"></span></span><span class="bar-val">'+val+'</span></div>').join('');};
+  body.innerHTML='<div class="stat-summary"><div><strong>'+total+'</strong><span>Total</span></div><div><strong>'+ratingAvg+'</strong><span>Valoración media</span></div><div><strong>'+withCover+'</strong><span>Con portada</span></div></div>'+'<div class="chart-row"><h4>Por estado</h4>'+barHtml(sortObj(byStatus))+'</div>'+'<div class="chart-row"><h4>Por estantería</h4>'+barHtml(sortObj(byShelf))+'</div>'+'<div class="chart-row"><h4>Por balda</h4>'+barHtml(sortObj(byRow))+'</div>'+'<div class="chart-row"><h4>Autores más repetidos</h4>'+barHtml(sortObj(byAuthor).slice(0,8))+'</div>'+'<div class="chart-row"><h4>Otros</h4><div class="hint">'+withIsbn+' con ISBN · '+thisYear+' añadidos en '+currentYear+'</div></div>';
 }
 
 function render(){
@@ -371,8 +358,7 @@ function render(){
     return;
   }
   list.innerHTML=f.map(b=>{
-    const isIdb=b.cover&&b.cover.startsWith('idb:');
-    const isUrl=b.cover&&/^https:\/\//i.test(b.cover);
+    const isIdb=b.cover&&b.cover.startsWith('idb:');const isUrl=b.cover&&/^https:\/\//i.test(b.cover);
     const ch=isUrl?'<img class="cover" src="'+esc(b.cover)+'" alt="Portada" loading="lazy" onerror="this.style.display=\'none\'">':isIdb?'<div class="cover cover-placeholder" data-idb-cover="'+esc(b.id)+'">📖</div>':'<div class="cover cover-placeholder">📖</div>';
     const stars=b.rating?'<div class="stars">'+'★'.repeat(b.rating)+'☆'.repeat(5-b.rating)+'</div>':'';
     const cm=b.comments?'<div class="comment">'+esc(b.comments)+'</div>':'';
@@ -388,66 +374,77 @@ function render(){
   renderStats();
 }
 
-/* ---------- Modo selección y operaciones en lote ---------- */
 function updateBatchBar(){$('batchCount').textContent=selectedIds.size+' seleccionado(s)';}
-$('selectModeBtn').addEventListener('click',()=>{
-  selectMode=!selectMode;
-  $('selectModeBtn').setAttribute('aria-pressed',String(selectMode));
-  $('batchBar').classList.toggle('hidden',!selectMode);
-  if(!selectMode)selectedIds.clear();
-  updateBatchBar();render();
-});
+$('selectModeBtn').addEventListener('click',()=>{selectMode=!selectMode;$('selectModeBtn').setAttribute('aria-pressed',String(selectMode));$('batchBar').classList.toggle('hidden',!selectMode);if(!selectMode)selectedIds.clear();updateBatchBar();render();});
 $('batchCancel').addEventListener('click',()=>{selectMode=false;selectedIds.clear();$('selectModeBtn').setAttribute('aria-pressed','false');$('batchBar').classList.add('hidden');$('batchStatus').value='';$('batchShelf').value='';$('batchRow').value='';render();});
-$('batchStatus').addEventListener('change',()=>{
-  const s=$('batchStatus').value;if(!s)return;
-  if(!selectedIds.size){toast('No hay libros seleccionados.');$('batchStatus').value='';return;}
-  const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,status:b.status});b.status=s;}}
-  persist();toast(prev.length+' libro(s) a «'+s+'»','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.status=p.status;}persist();});
-  $('batchStatus').value='';updateBatchBar();
-});
-$('batchShelf').addEventListener('change',()=>{
-  const s=$('batchShelf').value;if(!s)return;
-  if(!selectedIds.size){toast('No hay libros seleccionados.');$('batchShelf').value='';return;}
-  const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,location:b.location});let newLoc='';if(s==='__clear__')newLoc=/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'')?'B'+RegExp.$1:'';
-    else{const m=/^B(\d+)$/.exec(b.location||'')||/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'');if(m)newLoc='E'+s+' · B'+m[1];else newLoc='E'+s;}b.location=newLoc;}}
-  persist();toast(prev.length+' libro(s) movidos','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.location=p.location;}persist();});
-  $('batchShelf').value='';updateBatchBar();
-});
-$('batchRow').addEventListener('change',()=>{
-  const r=$('batchRow').value;if(!r)return;
-  if(!selectedIds.size){toast('No hay libros seleccionados.');$('batchRow').value='';return;}
-  const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,location:b.location});let newLoc='';if(r==='__clear__')newLoc=/^E(\d+)\s*·\s*B\d+$/.exec(b.location||'')?'E'+RegExp.$1:'';
-    else{const m=/^E(\d+)\s*·\s*B\d+$/.exec(b.location||'');if(m)newLoc='E'+m[1]+' · B'+r;else if(/^E(\d+)$/.test(b.location||''))newLoc=b.location+' · B'+r;else newLoc='B'+r;}b.location=newLoc;}}
-  persist();toast(prev.length+' libro(s) movidos a balda','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.location=p.location;}persist();});
-  $('batchRow').value='';updateBatchBar();
-});
+$('batchStatus').addEventListener('change',()=>{const s=$('batchStatus').value;if(!s)return;if(!selectedIds.size){toast('No hay seleccionados.');$('batchStatus').value='';return;}const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,status:b.status});b.status=s;}}persist();toast(prev.length+' a «'+s+'»','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.status=p.status;}persist();});$('batchStatus').value='';updateBatchBar();});
+$('batchShelf').addEventListener('change',()=>{const s=$('batchShelf').value;if(!s)return;if(!selectedIds.size){toast('No hay seleccionados.');$('batchShelf').value='';return;}const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,location:b.location});let nl='';if(s==='__clear__'){const m=/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'');nl=m?'B'+m[1]:'';}else{const m=/^B(\d+)$/.exec(b.location||'')||/^E\d+\s*·\s*B(\d+)$/.exec(b.location||'');nl=m?'E'+s+' · B'+m[1]:'E'+s;}b.location=nl;}}persist();toast(prev.length+' movidos','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.location=p.location;}persist();});$('batchShelf').value='';updateBatchBar();});
+$('batchRow').addEventListener('change',()=>{const r=$('batchRow').value;if(!r)return;if(!selectedIds.size){toast('No hay seleccionados.');$('batchRow').value='';return;}const prev=[];for(const b of books){if(selectedIds.has(b.id)){prev.push({id:b.id,location:b.location});let nl='';if(r==='__clear__'){const m=/^E(\d+)\s*·\s*B\d+$/.exec(b.location||'');nl=m?'E'+m[1]:'';}else{const m=/^E(\d+)\s*·\s*B\d+$/.exec(b.location||'');if(m)nl='E'+m[1]+' · B'+r;else if(/^E(\d+)$/.test(b.location||''))nl=b.location+' · B'+r;else nl='B'+r;}b.location=nl;}}persist();toast(prev.length+' movidos a balda','Deshacer',()=>{for(const p of prev){const b=books.find(x=>x.id===p.id);if(b)b.location=p.location;}persist();});$('batchRow').value='';updateBatchBar();});
 
 $('search').addEventListener('input',render);$('statusFilter').addEventListener('change',render);$('sortBy').addEventListener('change',render);$('shelfFilter').addEventListener('change',render);$('rowFilter').addEventListener('change',render);
 $('listView').addEventListener('click',()=>setView('list'));$('gridView').addEventListener('click',()=>setView('grid'));
 function setView(v){currentView=v;$('listView').setAttribute('aria-pressed',String(v==='list'));$('gridView').setAttribute('aria-pressed',String(v==='grid'));render();}
 $('fabAdd').addEventListener('click',()=>{resetForm();$('title').focus();window.scrollTo({top:0,behavior:'smooth'});});
-
 $('surpriseBtn').addEventListener('click',()=>{const p=books.filter(b=>b.status==='Pendiente de leer');if(!p.length){toast('No hay pendientes.');return;}const e=p[Math.floor(Math.random()*p.length)];const card=document.querySelector('[data-book-id="'+e.id+'"]');if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.add('highlight');setTimeout(()=>card.classList.remove('highlight'),2600);}toast('🎲 “'+e.title+'”');});
 $('searchMicBtn').addEventListener('click',()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast('Sin soporte.');return;}const r=new SR();r.lang='es-ES';r.interimResults=false;r.onresult=ev=>{const t=ev.results[0][0].transcript;$('search').value=t;$('search').dispatchEvent(new Event('input'));toast('Buscando: '+t);};r.onerror=()=>toast('Error.');try{r.start();}catch(e){toast('No se pudo iniciar.');}});
 
 /* ---------- Exportaciones ---------- */
 function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);}
-$('exportXlsx').addEventListener('click',()=>{if(typeof XLSX==='undefined'){toast('Falta Excel.');return;}const d=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:formatLocation(b.location),ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));const ws=XLSX.utils.json_to_sheet(d);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');XLSX.writeFile(wb,'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Excel exportado');});
-$('exportJson').addEventListener('click',()=>{const p={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');limpiarCambios();toast('Copia JSON creada');});
 
-/* ---------- Compartir copia JSON ---------- */
-$('shareJson').addEventListener('click',async()=>{
-  const payload={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  const filename='copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json';
-  if(navigator.canShare){
-    const file=new File([blob],filename,{type:'application/json'});
-    if(navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],title:'Copia de Mi Biblioteca',text:'Copia de seguridad de Mi Biblioteca'});limpiarCambios();toast('Copia compartida');return;}catch(e){if(e.name==='AbortError')return;}
-    }
-  }
-  downloadBlob(blob,filename);limpiarCambios();toast('Copia descargada');
+$('exportXlsx').addEventListener('click',()=>{
+  if(typeof XLSX==='undefined'){toast('La librería Excel no está disponible. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());return;}
+  if(!books.length){toast('No hay libros para exportar.');return;}
+  try{
+    const d=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:formatLocation(b.location),ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));
+    const ws=XLSX.utils.json_to_sheet(d);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');
+    const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    if(!out||out.byteLength<1024){toast('El Excel salió vacío. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());return;}
+    downloadBlob(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    toast('Excel exportado ('+books.length+' libros)');
+  }catch(e){toast('Error al generar Excel. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());}
 });
+
+$('exportCsv').addEventListener('click',()=>{
+  if(!books.length){toast('No hay libros para exportar.');return;}
+  try{
+    const rows=[['Título','Autor','Estado','Ubicación','ISBN','Comentarios','Valoración','Añadido']];
+    for(const b of books){rows.push([b.title,b.author,b.status,formatLocation(b.location),b.isbn,b.comments,b.rating,b.createdAt]);}
+    const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+    downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.csv');
+    toast('CSV exportado ('+books.length+' libros)');
+  }catch(e){toast('Error al generar CSV.');}
+});
+
+$('exportJson').addEventListener('click',()=>{if(!books.length){toast('No hay libros.');return;}const p={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');marcarExportacionManual();toast('Copia JSON creada');});
+
+$('shareJson').addEventListener('click',async()=>{
+  if(!books.length){toast('No hay libros para compartir.');return;}
+  const payload={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
+  const jsonStr=JSON.stringify(payload,null,2);
+  const blob=new Blob([jsonStr],{type:'application/json'});
+  const filename='copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json';
+  if(navigator.share){
+    try{const file=new File([blob],filename,{type:'application/json'});await navigator.share({files:[file],title:'Copia de Mi Biblioteca',text:'Copia de seguridad de Mi Biblioteca'});marcarExportacionManual();toast('Copia compartida');return;}
+    catch(e){if(e.name==='AbortError')return;console.warn('Share files falló:',e);}
+    try{await navigator.share({title:'Copia de Mi Biblioteca',text:jsonStr});marcarExportacionManual();toast('Copia compartida como texto');return;}
+    catch(e){if(e.name==='AbortError')return;console.warn('Share text falló:',e);}
+  }
+  downloadBlob(blob,filename);marcarExportacionManual();
+  toast('Tu navegador no permite compartir. Copia descargada.','Copiar JSON',()=>copiarJsonAlPortapapeles());
+});
+
+async function copiarJsonAlPortapapeles(){
+  if(!books.length){toast('No hay libros.');return false;}
+  const p={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
+  const txt=JSON.stringify(p,null,2);
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(txt);}
+    else{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+    marcarExportacionManual();
+    toast('JSON copiado al portapapeles. Pégalo donde quieras.');return true;
+  }catch(e){toast('No se pudo copiar. Usa «Crear copia JSON».');return false;}
+}
+$('copyJson').addEventListener('click',copiarJsonAlPortapapeles);
 
 /* ---------- Importación ---------- */
 $('importJsonBtn').addEventListener('click',()=>$('importFile').click());
@@ -543,12 +540,50 @@ $('torchBtn').addEventListener('click',async()=>{if(!currentStream)return;try{to
 function stopScanner(){try{scannerControls&&scannerControls.stop();}catch(e){}try{codeReader&&codeReader.reset();}catch(e){}try{$('scannerVideo').srcObject&&$('scannerVideo').srcObject.getTracks().forEach(t=>t.stop());}catch(e){}scannerControls=null;codeReader=null;scanBusy=false;currentStream=null;torchOn=false;$('torchBtn').hidden=true;$('torchBtn').textContent='💡 Linterna';$('scannerPanel').classList.add('hidden');}
 $('stopScanner').addEventListener('click',()=>stopScanner());
 
+/* ---------- Recordatorio de copia (7 días) ---------- */
+function comprobarRecordatorioCopia(){
+  if(!books.length)return;
+  const dias=diasDesdeUltimaExportacion();
+  if(dias>7){
+    setTimeout(()=>{
+      toast('Han pasado '+Math.floor(dias)+' días sin exportar copia. Te recomiendo hacer una.','Exportar',()=>{$('exportJson').click();});
+    },4000);
+  }
+}
+
+/* ---------- Interceptor botón atrás ---------- */
+let saliendoConfirmado=false;
+function armarInterceptor(){try{history.pushState({app:'mi-biblioteca'},'','');}catch(e){}}
+function desarmarInterceptor(){saliendoConfirmado=true;try{history.back();}catch(e){}}
+window.addEventListener('popstate',()=>{
+  if(saliendoConfirmado)return;
+  const necesitaAviso=hayCambios()||diasDesdeUltimaExportacion()>7;
+  if(!necesitaAviso){desarmarInterceptor();return;}
+  const msg='Antes de salir, ¿quieres guardar una copia de seguridad JSON?\n\n'+
+    (hayCambios()?'• Tienes cambios sin exportar.\n':'')+
+    (diasDesdeUltimaExportacion()>7?'• Han pasado más de 7 días desde tu última copia.\n':'')+
+    '\nAceptar = Guardar copia JSON y salir\nCancelar = Salir sin copia';
+  const quiereGuardar=confirm(msg);
+  if(quiereGuardar){
+    try{
+      const payload={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
+      const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+      marcarExportacionManual();toast('Copia guardada. Saliendo…');
+      setTimeout(()=>desarmarInterceptor(),800);
+    }catch(err){toast('No se pudo guardar. Saliendo sin copia.');setTimeout(()=>desarmarInterceptor(),300);}
+  }else{desarmarInterceptor();}
+});
+
 /* ---------- Arranque ---------- */
 async function arrancar(){
   loadSettings();rebuildSelects();loadBooks();render();updateLastBackupLabel();updateUnsavedDot();
   $('appVersion').textContent=APP_VERSION;
   try{const n=await migrarPortadasAIDB();if(n>0){toast('Migradas '+n+' portadas a IndexedDB');render();}}catch(e){}
   setTimeout(()=>{completarPortadasPendientes();},1500);
+  armarInterceptor();
+  comprobarRecordatorioCopia();
 }
 arrancar();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
