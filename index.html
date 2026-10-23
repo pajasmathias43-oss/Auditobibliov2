@@ -31,7 +31,6 @@ button:hover{filter:brightness(.97)}
 .primary{background:var(--accent);color:#fff;width:100%;margin-top:16px}
 .secondary{background:var(--accent-soft);color:var(--accent)}
 .danger{background:var(--danger-soft);color:var(--danger)}
-.success{background:var(--green);color:#fff}
 .hint{font-size:.8rem;color:var(--muted);margin:8px 0 0;line-height:1.45}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .full{grid-column:1/-1}
@@ -161,26 +160,25 @@ details.stats-panel .stats-body{padding:0 14px 14px}
 <section class="card"><h2>Mi colección</h2><div class="filters"><div class="search-wrap"><input id="search" placeholder="Buscar título, autor, ISBN, comentarios…" aria-label="Buscar"><button class="mic-search" id="searchMicBtn" type="button" title="Buscar por voz">🎤</button></div><select id="statusFilter" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select><select id="sortBy" aria-label="Ordenar"><option value="title">Título A–Z</option><option value="author">Autor A–Z</option><option value="location">Ubicación A–Z</option><option value="newest">Añadidos recientemente</option><option value="rating">Mejor valorados</option></select></div><div class="filters-extra"><select id="shelfFilter" aria-label="Filtrar por estantería"></select><select id="rowFilter" aria-label="Filtrar por balda"></select></div><div class="viewbar"><span class="count" id="count">0 libros</span><div class="buttons"><button class="secondary" id="selectModeBtn" type="button" title="Seleccionar varios">☑️ Seleccionar</button><button class="secondary" id="surpriseBtn" type="button" title="Sugerir un libro pendiente">🎲 Sorpréndeme</button><button class="secondary" id="listView" type="button" aria-pressed="true">☷ Lista</button><button class="secondary" id="gridView" type="button" aria-pressed="false">▦ Portadas</button></div></div><div id="batchBar" class="batch-bar hidden"><span class="hint" style="margin:0;min-width:100px" id="batchCount">0 seleccionados</span><select id="batchStatus"><option value="">Cambiar estado…</option><option>Pendiente de leer</option><option>Leyendo</option><option>Leído</option><option>En pausa</option></select><select id="batchShelf"><option value="">Mover a estantería…</option><option value="__clear__">Quitar estantería</option></select><select id="batchRow"><option value="">Mover a balda…</option><option value="__clear__">Quitar balda</option></select><button class="secondary" id="batchCancel" type="button">Cancelar</button></div><div id="bookList" class="book-list"></div>
 <details class="stats-panel" id="statsPanel"><summary>📊 Estadísticas detalladas</summary><div class="stats-body" id="statsBody"></div></details>
 <details class="backup"><summary>⚙️ Copias de seguridad</summary><div class="backup-body">
-<button class="secondary" id="exportXlsx" type="button">📊 Exportar Excel</button>
-<button class="secondary" id="exportCsv" type="button">📄 Exportar CSV</button>
-<button class="secondary" id="exportJson" type="button">💾 Crear copia JSON</button>
-<button class="secondary" id="shareJson" type="button">📤 Compartir copia JSON</button>
-<button class="secondary" id="copyJson" type="button">📋 Copiar JSON</button>
+<button class="secondary" id="exportCsv" type="button">📄 Exportar a Excel/CSV</button>
+<button class="secondary" id="exportJson" type="button">💾 Copia de seguridad (JSON)</button>
+<button class="secondary" id="exportZip" type="button">📦 Copia completa (ZIP)</button>
 <button class="secondary" id="importJsonBtn" type="button">📥 Restaurar / importar</button>
 <button class="secondary" id="restoreAuto" type="button">🕓 Restaurar copia automática</button>
 <button class="secondary" id="checkUpdates" type="button">🔄 Buscar actualizaciones</button>
 <button class="secondary" id="installBtn" type="button" hidden>📲 Instalar app</button>
-<input type="file" id="importFile" accept="application/json,.json,text/csv,.csv" hidden>
+<input type="file" id="importFile" accept="application/json,.json,text/csv,.csv,application/zip,.zip" hidden>
 </div><p class="hint" style="padding:0 14px 14px">Tus datos se guardan solo en este dispositivo. Se crea una copia automática antes de cada guardado.</p></details>
 </section>
 </main>
 <button class="fab" id="fabAdd" title="Añadir libro">＋</button>
-<footer>Mi Biblioteca · Almacenamiento local y privado.<small id="lastBackup">Hecho con cariño para mi biblioteca.</small><span class="version"><span class="dot" id="unsavedDot"></span><span id="appVersion">v21.2</span></span></footer>
+<footer>Mi Biblioteca · Almacenamiento local y privado.<small id="lastBackup">Hecho con cariño para mi biblioteca.</small><span class="version"><span class="dot" id="unsavedDot"></span><span id="appVersion">v22.1</span></span></footer>
 <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 'use strict';
-const APP_VERSION='v21.2';
+const APP_VERSION='v22.1';
 const STORAGE_KEY='mi-biblioteca-libros-v1';
 const BACKUP_KEY='mi-biblioteca-backup-auto';
 const ISBN_CACHE_KEY='mi-biblioteca-isbn-cache';
@@ -391,19 +389,6 @@ $('searchMicBtn').addEventListener('click',()=>{const SR=window.SpeechRecognitio
 /* ---------- Exportaciones ---------- */
 function downloadBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);}
 
-$('exportXlsx').addEventListener('click',()=>{
-  if(typeof XLSX==='undefined'){toast('La librería Excel no está disponible. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());return;}
-  if(!books.length){toast('No hay libros para exportar.');return;}
-  try{
-    const d=books.map(b=>({Título:b.title,Autor:b.author,Estado:b.status,Ubicación:formatLocation(b.location),ISBN:b.isbn,Comentarios:b.comments,Valoración:b.rating,'Añadido':b.createdAt}));
-    const ws=XLSX.utils.json_to_sheet(d);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Biblioteca');
-    const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-    if(!out||out.byteLength<1024){toast('El Excel salió vacío. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());return;}
-    downloadBlob(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.xlsx');
-    toast('Excel exportado ('+books.length+' libros)');
-  }catch(e){toast('Error al generar Excel. Usa «Exportar CSV».','Ver CSV',()=>$('exportCsv').click());}
-});
-
 $('exportCsv').addEventListener('click',()=>{
   if(!books.length){toast('No hay libros para exportar.');return;}
   try{
@@ -411,53 +396,187 @@ $('exportCsv').addEventListener('click',()=>{
     for(const b of books){rows.push([b.title,b.author,b.status,formatLocation(b.location),b.isbn,b.comments,b.rating,b.createdAt]);}
     const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     downloadBlob(new Blob([csv],{type:'text/csv;charset=utf-8'}),'mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.csv');
-    toast('CSV exportado ('+books.length+' libros)');
+    marcarExportacionManual();
+    toast('Archivo descargado. No olvides guardarlo en un lugar seguro (Drive, WhatsApp, etc.)');
   }catch(e){toast('Error al generar CSV.');}
 });
 
-$('exportJson').addEventListener('click',()=>{if(!books.length){toast('No hay libros.');return;}const p={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');marcarExportacionManual();toast('Copia JSON creada');});
+$('exportJson').addEventListener('click',()=>{if(!books.length){toast('No hay libros.');return;}const p={app:'Mi Biblioteca',version:11,exportedAt:new Date().toISOString(),books};downloadBlob(new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),'copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json');marcarExportacionManual();toast('Archivo descargado. No olvides guardarlo en un lugar seguro (Drive, WhatsApp, etc.)');});
 
-$('shareJson').addEventListener('click',async()=>{
-  if(!books.length){toast('No hay libros para compartir.');return;}
-  const payload={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
-  const jsonStr=JSON.stringify(payload,null,2);
-  const blob=new Blob([jsonStr],{type:'application/json'});
-  const filename='copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json';
-  if(navigator.share){
-    try{const file=new File([blob],filename,{type:'application/json'});await navigator.share({files:[file],title:'Copia de Mi Biblioteca',text:'Copia de seguridad de Mi Biblioteca'});marcarExportacionManual();toast('Copia compartida');return;}
-    catch(e){if(e.name==='AbortError')return;console.warn('Share files falló:',e);}
-    try{await navigator.share({title:'Copia de Mi Biblioteca',text:jsonStr});marcarExportacionManual();toast('Copia compartida como texto');return;}
-    catch(e){if(e.name==='AbortError')return;console.warn('Share text falló:',e);}
+/* ---------- Copia completa ZIP ---------- */
+$('exportZip').addEventListener('click', async () => {
+  if (typeof JSZip === 'undefined') { toast('La librería ZIP no está disponible. Revisa la conexión.'); return; }
+  if (!books.length) { toast('No hay libros.'); return; }
+  try {
+    toast('Preparando ZIP…', null, null, 3000);
+    const zip = new JSZip();
+    const payload = { app: 'Mi Biblioteca', version: 11, exportedAt: new Date().toISOString(), books };
+    zip.file('biblioteca.json', JSON.stringify(payload, null, 2));
+    const portadas = zip.folder('portadas');
+    let conPortada = 0;
+    for (const b of books) {
+      if (b.cover && b.cover.startsWith('idb:')) {
+        try {
+          const blob = await obtenerPortadaIDB(b.id);
+          if (blob) { portadas.file(b.id + '.jpg', blob); conPortada++; }
+        } catch (e) {}
+      }
+    }
+    const out = await zip.generateAsync({ type: 'blob' });
+    const nombre = 'mi_biblioteca_completa_' + new Date().toISOString().slice(0, 10) + '.zip';
+    downloadBlob(out, nombre);
+    marcarExportacionManual();
+    toast('ZIP creado con ' + books.length + ' libros y ' + conPortada + ' portadas. No olvides guardarlo en un lugar seguro.');
+  } catch (e) {
+    console.error(e);
+    toast('Error al crear el ZIP.');
   }
-  downloadBlob(blob,filename);marcarExportacionManual();
-  toast('Tu navegador no permite compartir. Copia descargada.','Copiar JSON',()=>copiarJsonAlPortapapeles());
 });
 
-async function copiarJsonAlPortapapeles(){
-  if(!books.length){toast('No hay libros.');return false;}
-  const p={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
-  const txt=JSON.stringify(p,null,2);
-  try{
-    if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(txt);}
-    else{const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
-    marcarExportacionManual();
-    toast('JSON copiado al portapapeles. Pégalo donde quieras.');return true;
-  }catch(e){toast('No se pudo copiar. Usa «Crear copia JSON».');return false;}
+/* ---------- Importación (JSON, CSV o ZIP) ---------- */
+$('importJsonBtn').addEventListener('click', () => $('importFile').click());
+
+$('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.name.toLowerCase().split('.').pop();
+  try {
+    if (ext === 'zip') {
+      await importarZip(file);
+    } else {
+      await importarJsonOCsv(file, ext);
+    }
+  } catch (err) {
+    console.error(err);
+    toast('No se pudo leer la copia. Revisa el formato.');
+  } finally {
+    e.target.value = '';
+  }
+});
+
+async function importarZip(file) {
+  if (typeof JSZip === 'undefined') { toast('La librería ZIP no está disponible. Revisa la conexión.'); return; }
+  toast('Leyendo ZIP…', null, null, 3000);
+  const zip = await JSZip.loadAsync(file);
+  const jsonFile = zip.file('biblioteca.json');
+  if (!jsonFile) throw new Error('El ZIP no contiene biblioteca.json');
+  const jsonText = await jsonFile.async('string');
+  const parsed = JSON.parse(jsonText);
+  const imported = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.books) ? parsed.books : null);
+  if (!imported || !imported.every(b => b && typeof b.title === 'string')) throw new Error('biblioteca.json inválido');
+  const normalized = imported.map(normalizeBook);
+
+  const mode = prompt('La copia contiene ' + normalized.length + ' libros. Escribe COMBINAR o SUSTITUIR.', 'COMBINAR');
+  if (!mode) return;
+  const modeUp = mode.trim().toUpperCase();
+
+  const portadas = zip.folder('portadas');
+  let restauradas = 0;
+  if (portadas) {
+    const lista = [];
+    portadas.forEach((relPath, entry) => { if (!entry.dir) lista.push({ relPath, entry }); });
+    for (const item of lista) {
+      const id = item.relPath.split('/').pop().replace(/\.(jpg|jpeg|png|webp)$/i, '');
+      try {
+        const blob = await item.entry.async('blob');
+        await guardarPortadaIDB(id, blob);
+        const libro = normalized.find(b => b.id === id);
+        if (libro) libro.cover = 'idb:' + id;
+        restauradas++;
+      } catch (err) {
+        console.warn('Error restaurando portada', id, err);
+      }
+    }
+  }
+
+  if (modeUp === 'SUSTITUIR') {
+    if (!confirm('Esto sustituirá los ' + books.length + ' libros actuales. ¿Seguro?')) return;
+    books = normalized;
+  } else if (modeUp === 'COMBINAR') {
+    const keys = new Set(books.map(b =>
+      b.isbn ? 'isbn:' + b.isbn.replace(/[^0-9Xx]/g, '').toUpperCase()
+             : 'title:' + norm(b.title) + '|' + norm(b.author)
+    ));
+    let added = 0;
+    for (const b of normalized) {
+      const key = b.isbn ? 'isbn:' + b.isbn.replace(/[^0-9Xx]/g, '').toUpperCase()
+                         : 'title:' + norm(b.title) + '|' + norm(b.author);
+      if (!keys.has(key)) {
+        books.push(Object.assign({}, b, { id: safeId() }));
+        keys.add(key);
+        added++;
+      }
+    }
+    toast('Añadidos ' + added + ' libros');
+  } else {
+    toast('No se hizo ningún cambio.');
+    return;
+  }
+
+  persist();
+  toast('Importado: ' + normalized.length + ' libros · ' + restauradas + ' portadas');
+  if (restauradas > 0) render();
 }
-$('copyJson').addEventListener('click',copiarJsonAlPortapapeles);
 
-/* ---------- Importación ---------- */
-$('importJsonBtn').addEventListener('click',()=>$('importFile').click());
-$('importFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{let imp=null;if(file.name.toLowerCase().endsWith('.csv')){const text=await file.text();const wb=XLSX.read(text,{type:'string'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws,{defval:''});imp=json.map(r=>({title:r['Título']||r['Titulo']||r.title||'',author:r['Autor']||r.author||'',status:r['Estado']||r.status||'Pendiente de leer',location:r['Ubicación']||r['Ubicacion']||r['Balda']||r.location||'',isbn:r['ISBN']||r.isbn||'',comments:r['Comentarios']||r.comments||'',rating:Number(r['Valoración']||r.rating)||0}));}else{const p=JSON.parse(await file.text());imp=Array.isArray(p)?p:p&&Array.isArray(p.books)?p.books:null;}
-if(!imp||!imp.every(b=>b&&typeof b.title==='string'))throw Error('formato');
-const n=imp.map(normalizeBook);const mode=prompt('La copia contiene '+n.length+' libros. COMBINAR o SUSTITUIR.','COMBINAR');if(!mode)return;
-if(mode.trim().toUpperCase()==='SUSTITUIR'){if(!confirm('Sustituir '+books.length+' libros?'))return;books=n;}
-else if(mode.trim().toUpperCase()==='COMBINAR'){const keys=new Set(books.map(b=>b.isbn?'isbn:'+b.isbn.replace(/[^0-9Xx]/g,'').toUpperCase():'title:'+norm(b.title)+'|'+norm(b.author)));let a=0;for(const b of n){const k=b.isbn?'isbn:'+b.isbn.replace(/[^0-9Xx]/g,'').toUpperCase():'title:'+norm(b.title)+'|'+norm(b.author);if(!keys.has(k)){books.push(Object.assign({},b,{id:safeId()}));keys.add(k);a++;}}toast('Añadidos '+a);}
-else{toast('Nada.');return;}
-persist();}catch(err){toast('Copia inválida.');}finally{e.target.value='';}});
+async function importarJsonOCsv(file, ext) {
+  let imported = null;
+  if (ext === 'csv') {
+    if (typeof XLSX === 'undefined') { toast('La librería CSV no está disponible. Revisa la conexión.'); return; }
+    const text = await file.text();
+    const wb = XLSX.read(text, { type: 'string' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    imported = json.map(r => ({
+      title: r['Título'] || r['Titulo'] || r.title || '',
+      author: r['Autor'] || r.author || '',
+      status: r['Estado'] || r.status || 'Pendiente de leer',
+      location: r['Ubicación'] || r['Ubicacion'] || r['Balda'] || r.location || '',
+      isbn: r['ISBN'] || r.isbn || '',
+      comments: r['Comentarios'] || r.comments || '',
+      rating: Number(r['Valoración'] || r.rating) || 0
+    }));
+  } else {
+    const parsed = JSON.parse(await file.text());
+    imported = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.books) ? parsed.books : null);
+  }
+  if (!imported || !imported.every(b => b && typeof b.title === 'string')) throw new Error('Formato no válido');
+  const normalized = imported.map(normalizeBook);
+  const mode = prompt('La copia contiene ' + normalized.length + ' libros. COMBINAR o SUSTITUIR.', 'COMBINAR');
+  if (!mode) return;
+  const modeUp = mode.trim().toUpperCase();
+  if (modeUp === 'SUSTITUIR') {
+    if (!confirm('Esto sustituirá los ' + books.length + ' libros actuales. ¿Seguro?')) return;
+    books = normalized;
+  } else if (modeUp === 'COMBINAR') {
+    const keys = new Set(books.map(b =>
+      b.isbn ? 'isbn:' + b.isbn.replace(/[^0-9Xx]/g, '').toUpperCase()
+             : 'title:' + norm(b.title) + '|' + norm(b.author)
+    ));
+    let added = 0;
+    for (const b of normalized) {
+      const key = b.isbn ? 'isbn:' + b.isbn.replace(/[^0-9Xx]/g, '').toUpperCase()
+                         : 'title:' + norm(b.title) + '|' + norm(b.author);
+      if (!keys.has(key)) {
+        books.push(Object.assign({}, b, { id: safeId() }));
+        keys.add(key);
+        added++;
+      }
+    }
+    toast('Añadidos ' + added + ' libros');
+  } else {
+    toast('No se hizo ningún cambio.');
+    return;
+  }
+  persist();
+}
 
+/* ---------- Restaurar copia automática ---------- */
 $('restoreAuto').addEventListener('click',()=>{try{const r=localStorage.getItem(BACKUP_KEY);if(!r){toast('Sin copia.');return;}const d=JSON.parse(r);if(!confirm('Copia del '+new Date(d.savedAt).toLocaleString()+' con '+d.books.length+' libros. ¿Restaurar?'))return;books=d.books.map(normalizeBook);persist();toast('Restaurada');}catch(e){toast('Error.');}});
+
+/* ---------- Buscar actualizaciones ---------- */
 $('checkUpdates').addEventListener('click',async()=>{if(!('serviceWorker' in navigator)){toast('No disponible.');return;}try{const reg=await navigator.serviceWorker.getRegistration();if(!reg){toast('Sin SW activo.');return;}await reg.update();if(reg.waiting){if(confirm('Nueva versión disponible. ¿Recargar?')){reg.waiting.postMessage({type:'SKIP_WAITING'});window.location.reload();}}else{toast('Estás en la última versión.');}}catch(e){toast('Error.');}});
+
+/* ---------- Instalación ---------- */
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;$('installBtn').hidden=false;});
 $('installBtn').addEventListener('click',async()=>{if(!deferredInstallPrompt){toast('Menú ⋮ → Instalar aplicación.');return;}deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;$('installBtn').hidden=true;});
 
@@ -566,7 +685,7 @@ window.addEventListener('popstate',()=>{
   const quiereGuardar=confirm(msg);
   if(quiereGuardar){
     try{
-      const payload={app:'Mi Biblioteca',version:10,exportedAt:new Date().toISOString(),books};
+      const payload={app:'Mi Biblioteca',version:11,exportedAt:new Date().toISOString(),books};
       const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='copia_mi_biblioteca_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),2000);
